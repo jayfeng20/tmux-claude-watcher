@@ -15,9 +15,9 @@ mod tests;
 #[derive(Debug, Clone)]
 pub struct PaneInfo {
     pub id: PaneId,
-    pub pane_active: bool,   // whether this is the active pane within its window
+    pub pane_active: bool, // whether this is the active pane within its window
     pub window_active: bool, // whether this pane's window is the active window in its session
-    pub pane_in_mode: bool,  // whether in copy_mode
+    pub pane_in_mode: bool, // whether in copy_mode
     pub current_cmd: String, // foreground process name reported by tmux
     pub state: PaneState,
     pub last_updated: SystemTime,

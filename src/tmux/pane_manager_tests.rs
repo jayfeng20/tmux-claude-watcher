@@ -70,7 +70,17 @@ fn make_pane_info(
 #[test]
 fn parse_raw_pane_valid() {
     let mgr = make_manager();
-    let line = make_pane_line("%3", "1", "bash", "0", "1700000000", "2", "editor", "1", "work");
+    let line = make_pane_line(
+        "%3",
+        "1",
+        "bash",
+        "0",
+        "1700000000",
+        "2",
+        "editor",
+        "1",
+        "work",
+    );
     let raw = mgr
         .parse_pane_info(&line)
         .expect("should parse successfully");
@@ -117,7 +127,17 @@ fn parse_raw_pane_id_without_percent_prefix() {
 #[test]
 fn parse_raw_pane_non_numeric_window_index_errors() {
     let mgr = make_manager();
-    let line = make_pane_line("%0", "1", "bash", "0", "0", "notanumber", "win", "1", "sess");
+    let line = make_pane_line(
+        "%0",
+        "1",
+        "bash",
+        "0",
+        "0",
+        "notanumber",
+        "win",
+        "1",
+        "sess",
+    );
     assert!(mgr.parse_pane_info(&line).is_err());
 }
 
@@ -210,7 +230,17 @@ fn merge_panes_changed_state_resets_status_changed_at() {
 #[test]
 fn parse_pane_last_active_nonzero_becomes_some_systemtime() {
     let mgr = make_manager();
-    let line = make_pane_line("%0", "1", "bash", "0", "1700000000", "0", "term", "1", "main");
+    let line = make_pane_line(
+        "%0",
+        "1",
+        "bash",
+        "0",
+        "1700000000",
+        "0",
+        "term",
+        "1",
+        "main",
+    );
     let raw = mgr.parse_pane_info(&line).expect("should parse");
     assert_eq!(raw.pane_last_active_secs, 1700000000);
 }
@@ -230,11 +260,23 @@ fn merge_panes_last_focused_at_carried_from_fresh_pane() {
     let state = PaneState::Shell(ShellKind::Bash, ShellStatus::AwaitingInput);
 
     mgr.active_panes = Arc::new(vec![make_pane_info(
-        "work", 1, true, state.clone(), Some(SystemTime::now()), None,
+        "work",
+        1,
+        true,
+        state.clone(),
+        Some(SystemTime::now()),
+        None,
     )]);
 
     // Fresh pane carries a focus timestamp from #{pane_last_active} — merge must preserve it.
-    mgr.merge_panes(vec![make_pane_info("work", 1, true, state, None, Some(focus_time))]);
+    mgr.merge_panes(vec![make_pane_info(
+        "work",
+        1,
+        true,
+        state,
+        None,
+        Some(focus_time),
+    )]);
 
     assert_eq!(mgr.active_panes[0].last_focused_at, Some(focus_time));
 }

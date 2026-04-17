@@ -171,7 +171,10 @@ fn render_help(frame: &mut Frame) {
     frame.render_widget(Clear, area);
 
     let lines = vec![
-        Line::from(Span::styled("Icons", Style::default().add_modifier(Modifier::BOLD))),
+        Line::from(Span::styled(
+            "Icons",
+            Style::default().add_modifier(Modifier::BOLD),
+        )),
         Line::from(vec![
             Span::styled(">_", Style::default().fg(Color::Gray)),
             Span::raw("  Awaiting input"),
@@ -201,7 +204,10 @@ fn render_help(frame: &mut Frame) {
             Span::raw(" Unknown process"),
         ]),
         Line::raw(""),
-        Line::from(Span::styled("Columns", Style::default().add_modifier(Modifier::BOLD))),
+        Line::from(Span::styled(
+            "Columns",
+            Style::default().add_modifier(Modifier::BOLD),
+        )),
         Line::raw("ID  session:window.pane"),
         Line::from(Span::styled(
             "    e.g. main:0.3",
