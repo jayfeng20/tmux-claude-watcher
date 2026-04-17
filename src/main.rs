@@ -4,13 +4,16 @@
 //! and runs an event-driven [`ratatui`] loop on the main thread that redraws only
 //! when new pane data arrives or the user presses a key.
 
-use claude_pane_monitor::tmux::{pane_manager::PaneManager, ui::{App, AppAction}};
+use claude_pane_monitor::tmux::{
+    pane_manager::PaneManager,
+    ui::{App, AppAction},
+};
+use crossterm::event::KeyEventKind;
 use crossterm::{
     event::{Event, EventStream},
     execute,
     terminal::{EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode},
 };
-use crossterm::event::KeyEventKind;
 use futures::StreamExt;
 use ratatui::{Terminal, backend::CrosstermBackend};
 use std::sync::Arc;

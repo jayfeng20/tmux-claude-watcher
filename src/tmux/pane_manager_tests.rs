@@ -22,8 +22,13 @@ fn make_pane_line(
 ) -> String {
     format!(
         "{}|{}|{}|{}|{}|{}|{}",
-        pane_id, pane_active, pane_current_command, pane_in_mode,
-        window_index, window_name, session_name
+        pane_id,
+        pane_active,
+        pane_current_command,
+        pane_in_mode,
+        window_index,
+        window_name,
+        session_name
     )
 }
 
@@ -61,7 +66,9 @@ fn make_pane_info(
 fn parse_raw_pane_valid() {
     let mgr = make_manager();
     let line = make_pane_line("%3", "1", "bash", "0", "2", "editor", "work");
-    let raw = mgr.parse_pane_info(&line).expect("should parse successfully");
+    let raw = mgr
+        .parse_pane_info(&line)
+        .expect("should parse successfully");
 
     assert_eq!(raw.id.pane_id, 3);
     assert_eq!(raw.id.session_name, "work");
@@ -94,7 +101,9 @@ fn parse_raw_pane_copy_mode() {
 fn parse_raw_pane_id_without_percent_prefix() {
     let mgr = make_manager();
     let line = make_pane_line("5", "1", "fish", "0", "1", "term", "dev");
-    let raw = mgr.parse_pane_info(&line).expect("bare pane_id should work");
+    let raw = mgr
+        .parse_pane_info(&line)
+        .expect("bare pane_id should work");
     assert_eq!(raw.id.pane_id, 5);
 }
 
@@ -121,15 +130,24 @@ fn merge_panes_new_pane_initialises_timers() {
     let mut mgr = make_manager();
     let before = SystemTime::now();
     let fresh = vec![make_pane_info(
-        "work", 1, false,
+        "work",
+        1,
+        false,
         PaneState::Shell(ShellKind::Bash, ShellStatus::AwaitingInput),
-        TIMING_PENDING, TIMING_PENDING,
+        TIMING_PENDING,
+        TIMING_PENDING,
     )];
     mgr.merge_panes(fresh);
 
     let pane = &mgr.active_panes[0];
-    assert!(pane.status_changed_at >= before, "status_changed_at should be set to now");
-    assert_eq!(pane.last_focused_at, UNIX_EPOCH, "new pane has never been focused");
+    assert!(
+        pane.status_changed_at >= before,
+        "status_changed_at should be set to now"
+    );
+    assert_eq!(
+        pane.last_focused_at, UNIX_EPOCH,
+        "new pane has never been focused"
+    );
 }
 
 #[test]
@@ -140,12 +158,22 @@ fn merge_panes_unchanged_state_carries_forward_status_changed_at() {
 
     // Seed active_panes with a known status_changed_at.
     mgr.active_panes = Arc::new(vec![make_pane_info(
-        "work", 1, false, state.clone(), old_time, UNIX_EPOCH,
+        "work",
+        1,
+        false,
+        state.clone(),
+        old_time,
+        UNIX_EPOCH,
     )]);
 
     // Fresh pane has the same state — status_changed_at must be carried forward.
     mgr.merge_panes(vec![make_pane_info(
-        "work", 1, false, state, TIMING_PENDING, TIMING_PENDING,
+        "work",
+        1,
+        false,
+        state,
+        TIMING_PENDING,
+        TIMING_PENDING,
     )]);
 
     assert_eq!(mgr.active_panes[0].status_changed_at, old_time);
@@ -157,16 +185,22 @@ fn merge_panes_changed_state_resets_status_changed_at() {
     let old_time = UNIX_EPOCH + Duration::from_secs(1_000_000);
 
     mgr.active_panes = Arc::new(vec![make_pane_info(
-        "work", 1, false,
+        "work",
+        1,
+        false,
         PaneState::Shell(ShellKind::Bash, ShellStatus::AwaitingInput),
-        old_time, UNIX_EPOCH,
+        old_time,
+        UNIX_EPOCH,
     )]);
 
     let before = SystemTime::now();
     mgr.merge_panes(vec![make_pane_info(
-        "work", 1, false,
+        "work",
+        1,
+        false,
         PaneState::Shell(ShellKind::Bash, ShellStatus::Processing), // state changed
-        TIMING_PENDING, TIMING_PENDING,
+        TIMING_PENDING,
+        TIMING_PENDING,
     )]);
 
     assert!(mgr.active_panes[0].status_changed_at >= before);
@@ -180,13 +214,23 @@ fn merge_panes_focus_transition_updates_last_focused_at() {
 
     // Pane was previously inactive.
     mgr.active_panes = Arc::new(vec![make_pane_info(
-        "work", 1, false, state.clone(), SystemTime::now(), UNIX_EPOCH,
+        "work",
+        1,
+        false,
+        state.clone(),
+        SystemTime::now(),
+        UNIX_EPOCH,
     )]);
 
     let before = SystemTime::now();
     // Pane is now active — last_focused_at should be updated.
     mgr.merge_panes(vec![make_pane_info(
-        "work", 1, true, state, TIMING_PENDING, TIMING_PENDING,
+        "work",
+        1,
+        true,
+        state,
+        TIMING_PENDING,
+        TIMING_PENDING,
     )]);
 
     assert!(mgr.active_panes[0].last_focused_at >= before);
@@ -200,12 +244,22 @@ fn merge_panes_no_focus_change_carries_forward_last_focused_at() {
 
     // Pane was already active.
     mgr.active_panes = Arc::new(vec![make_pane_info(
-        "work", 1, true, state.clone(), SystemTime::now(), focus_time,
+        "work",
+        1,
+        true,
+        state.clone(),
+        SystemTime::now(),
+        focus_time,
     )]);
 
     // Still active — last_focused_at must not change.
     mgr.merge_panes(vec![make_pane_info(
-        "work", 1, true, state, TIMING_PENDING, TIMING_PENDING,
+        "work",
+        1,
+        true,
+        state,
+        TIMING_PENDING,
+        TIMING_PENDING,
     )]);
 
     assert_eq!(mgr.active_panes[0].last_focused_at, focus_time);

@@ -66,72 +66,88 @@ fn press(code: KeyCode) -> KeyEvent {
 #[test]
 fn renders_shell_bash_awaiting_input() {
     let mut app = App::new();
-    app.update_panes(Arc::new(vec![
-        make_pane("work", 1, PaneState::Shell(ShellKind::Bash, ShellStatus::AwaitingInput)),
-    ]));
+    app.update_panes(Arc::new(vec![make_pane(
+        "work",
+        1,
+        PaneState::Shell(ShellKind::Bash, ShellStatus::AwaitingInput),
+    )]));
     assert!(render(&app).contains(">_ bash"));
 }
 
 #[test]
 fn renders_shell_zsh_processing() {
     let mut app = App::new();
-    app.update_panes(Arc::new(vec![
-        make_pane("work", 1, PaneState::Shell(ShellKind::Zsh, ShellStatus::Processing)),
-    ]));
+    app.update_panes(Arc::new(vec![make_pane(
+        "work",
+        1,
+        PaneState::Shell(ShellKind::Zsh, ShellStatus::Processing),
+    )]));
     assert!(render(&app).contains("◉ zsh"));
 }
 
 #[test]
 fn renders_shell_fish_error() {
     let mut app = App::new();
-    app.update_panes(Arc::new(vec![
-        make_pane("work", 1, PaneState::Shell(ShellKind::Fish, ShellStatus::Error)),
-    ]));
+    app.update_panes(Arc::new(vec![make_pane(
+        "work",
+        1,
+        PaneState::Shell(ShellKind::Fish, ShellStatus::Error),
+    )]));
     assert!(render(&app).contains("✗ fish"));
 }
 
 #[test]
 fn renders_claude_thinking() {
     let mut app = App::new();
-    app.update_panes(Arc::new(vec![
-        make_pane("work", 1, PaneState::Claude(ClaudeStatus::Thinking)),
-    ]));
+    app.update_panes(Arc::new(vec![make_pane(
+        "work",
+        1,
+        PaneState::Claude(ClaudeStatus::Thinking),
+    )]));
     assert!(render(&app).contains("◌ claude"));
 }
 
 #[test]
 fn renders_claude_executing() {
     let mut app = App::new();
-    app.update_panes(Arc::new(vec![
-        make_pane("work", 1, PaneState::Claude(ClaudeStatus::Executing)),
-    ]));
+    app.update_panes(Arc::new(vec![make_pane(
+        "work",
+        1,
+        PaneState::Claude(ClaudeStatus::Executing),
+    )]));
     assert!(render(&app).contains("⚙ claude"));
 }
 
 #[test]
 fn renders_claude_awaiting_input() {
     let mut app = App::new();
-    app.update_panes(Arc::new(vec![
-        make_pane("work", 1, PaneState::Claude(ClaudeStatus::AwaitingInput)),
-    ]));
+    app.update_panes(Arc::new(vec![make_pane(
+        "work",
+        1,
+        PaneState::Claude(ClaudeStatus::AwaitingInput),
+    )]));
     assert!(render(&app).contains(">_ claude"));
 }
 
 #[test]
 fn renders_other_process() {
     let mut app = App::new();
-    app.update_panes(Arc::new(vec![
-        make_pane("work", 1, PaneState::Other("vim".to_string())),
-    ]));
+    app.update_panes(Arc::new(vec![make_pane(
+        "work",
+        1,
+        PaneState::Other("vim".to_string()),
+    )]));
     assert!(render(&app).contains("? vim"));
 }
 
 #[test]
 fn renders_never_for_unset_timing_fields() {
     let mut app = App::new();
-    app.update_panes(Arc::new(vec![
-        make_pane("work", 1, PaneState::Shell(ShellKind::Bash, ShellStatus::AwaitingInput)),
-    ]));
+    app.update_panes(Arc::new(vec![make_pane(
+        "work",
+        1,
+        PaneState::Shell(ShellKind::Bash, ShellStatus::AwaitingInput),
+    )]));
     // Both last_focused_at and status_changed_at are UNIX_EPOCH — should display "never".
     let output = render(&app);
     assert!(output.contains("never"));
@@ -150,9 +166,17 @@ fn renders_table_header() {
 fn renders_multiple_panes() {
     let mut app = App::new();
     app.update_panes(Arc::new(vec![
-        make_pane("main", 1, PaneState::Shell(ShellKind::Bash, ShellStatus::AwaitingInput)),
+        make_pane(
+            "main",
+            1,
+            PaneState::Shell(ShellKind::Bash, ShellStatus::AwaitingInput),
+        ),
         make_pane("main", 2, PaneState::Claude(ClaudeStatus::Generating)),
-        make_pane("work", 3, PaneState::Shell(ShellKind::Zsh, ShellStatus::Processing)),
+        make_pane(
+            "work",
+            3,
+            PaneState::Shell(ShellKind::Zsh, ShellStatus::Processing),
+        ),
     ]));
     let output = render(&app);
     assert!(output.contains(">_ bash"));
@@ -167,13 +191,19 @@ fn renders_multiple_panes() {
 #[test]
 fn q_key_returns_quit_action() {
     let mut app = App::new();
-    assert!(matches!(app.handle_key(press(KeyCode::Char('q'))), Some(AppAction::Quit)));
+    assert!(matches!(
+        app.handle_key(press(KeyCode::Char('q'))),
+        Some(AppAction::Quit)
+    ));
 }
 
 #[test]
 fn capital_q_key_returns_quit_action() {
     let mut app = App::new();
-    assert!(matches!(app.handle_key(press(KeyCode::Char('Q'))), Some(AppAction::Quit)));
+    assert!(matches!(
+        app.handle_key(press(KeyCode::Char('Q'))),
+        Some(AppAction::Quit)
+    ));
 }
 
 #[test]
@@ -217,9 +247,11 @@ fn down_arrow_moves_selection_down() {
 #[test]
 fn k_key_on_first_row_does_not_underflow() {
     let mut app = App::new();
-    app.update_panes(Arc::new(vec![
-        make_pane("s", 1, PaneState::Other("a".into())),
-    ]));
+    app.update_panes(Arc::new(vec![make_pane(
+        "s",
+        1,
+        PaneState::Other("a".into()),
+    )]));
     // Pressing k at the top row should clamp — no panic, no wrap.
     app.handle_key(press(KeyCode::Char('k')));
     assert!(render(&app).contains("s:win")); // still renders fine
@@ -252,9 +284,11 @@ fn update_panes_clamps_selection_when_list_shrinks() {
     app.handle_key(press(KeyCode::Char('j')));
 
     // Pane list shrinks to 1 — selection must clamp rather than go out of bounds.
-    app.update_panes(Arc::new(vec![
-        make_pane("s", 1, PaneState::Other("a".into())),
-    ]));
+    app.update_panes(Arc::new(vec![make_pane(
+        "s",
+        1,
+        PaneState::Other("a".into()),
+    )]));
 
     // Should still render without panic.
     assert!(render(&app).contains("s:win"));

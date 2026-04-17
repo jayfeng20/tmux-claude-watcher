@@ -83,11 +83,10 @@ impl PaneManager {
         let fresh = raw_panes
             .into_iter()
             .map(|raw| {
-                let content = Self::capture_pane(&raw.id.target())
-                    .unwrap_or_else(|e| {
-                        tracing::warn!(target = %raw.id.target(), error = %e, "capture-pane failed");
-                        String::new()
-                    });
+                let content = Self::capture_pane(&raw.id.target()).unwrap_or_else(|e| {
+                    tracing::warn!(target = %raw.id.target(), error = %e, "capture-pane failed");
+                    String::new()
+                });
                 let state = PaneState::from_process(&raw.current_cmd, &content);
                 PaneInfo {
                     state,

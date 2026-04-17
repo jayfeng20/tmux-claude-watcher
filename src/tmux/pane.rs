@@ -10,12 +10,12 @@ mod tests;
 #[derive(Debug, Clone)]
 pub struct PaneInfo {
     pub id: PaneId,
-    pub pane_active: bool,             // whether this is the currently focused pane
-    pub pane_in_mode: bool,            // whether in copy_mode
-    pub current_cmd: String,           // foreground process name reported by tmux
+    pub pane_active: bool,   // whether this is the currently focused pane
+    pub pane_in_mode: bool,  // whether in copy_mode
+    pub current_cmd: String, // foreground process name reported by tmux
     pub state: PaneState,
     pub last_updated: SystemTime,
-    pub last_focused_at: SystemTime,   // when pane_active last flipped false→true; UNIX_EPOCH if never observed
+    pub last_focused_at: SystemTime, // when pane_active last flipped false→true; UNIX_EPOCH if never observed
     pub status_changed_at: SystemTime, // when PaneState last changed
 }
 
@@ -113,9 +113,15 @@ impl ShellStatus {
     /// Infers the shell's current status from the pane's visible content.
     /// Checks are evaluated in priority order.
     pub fn from_pane_content(content: &str) -> ShellStatus {
-        if Self::has_error(content)       { return ShellStatus::Error; }
-        if Self::has_prompt(content)      { return ShellStatus::AwaitingInput; }
-        if content.trim().is_empty()      { return ShellStatus::Idle; }
+        if Self::has_error(content) {
+            return ShellStatus::Error;
+        }
+        if Self::has_prompt(content) {
+            return ShellStatus::AwaitingInput;
+        }
+        if content.trim().is_empty() {
+            return ShellStatus::Idle;
+        }
         ShellStatus::Processing
     }
 
@@ -147,9 +153,9 @@ impl ShellStatus {
     fn display(&self) -> (&'static str, Color) {
         match self {
             ShellStatus::AwaitingInput => (">_", Color::Gray),
-            ShellStatus::Processing    => ("◉",  Color::LightYellow),
-            ShellStatus::Idle          => ("○",  Color::DarkGray),
-            ShellStatus::Error         => ("✗",  Color::LightRed),
+            ShellStatus::Processing => ("◉", Color::LightYellow),
+            ShellStatus::Idle => ("○", Color::DarkGray),
+            ShellStatus::Error => ("✗", Color::LightRed),
         }
     }
 }
@@ -169,11 +175,21 @@ impl ClaudeStatus {
     /// Infers Claude's current status from the pane's visible content.
     /// Checks are evaluated in priority order.
     pub fn from_pane_content(content: &str) -> ClaudeStatus {
-        if Self::has_error(content)        { return ClaudeStatus::Error; }
-        if Self::is_thinking(content)      { return ClaudeStatus::Thinking; }
-        if Self::is_executing(content)     { return ClaudeStatus::Executing; }
-        if Self::is_awaiting_input(content){ return ClaudeStatus::AwaitingInput; }
-        if content.trim().is_empty()       { return ClaudeStatus::Idle; }
+        if Self::has_error(content) {
+            return ClaudeStatus::Error;
+        }
+        if Self::is_thinking(content) {
+            return ClaudeStatus::Thinking;
+        }
+        if Self::is_executing(content) {
+            return ClaudeStatus::Executing;
+        }
+        if Self::is_awaiting_input(content) {
+            return ClaudeStatus::AwaitingInput;
+        }
+        if content.trim().is_empty() {
+            return ClaudeStatus::Idle;
+        }
         ClaudeStatus::Generating
     }
 
@@ -209,11 +225,11 @@ impl ClaudeStatus {
     fn display(&self) -> (&'static str, Color) {
         match self {
             ClaudeStatus::AwaitingInput => (">_", Color::Gray),
-            ClaudeStatus::Generating    => ("◉",  Color::LightYellow),
-            ClaudeStatus::Thinking      => ("◌",  Color::LightCyan),
-            ClaudeStatus::Executing     => ("⚙",  Color::LightYellow),
-            ClaudeStatus::Idle          => ("○",  Color::DarkGray),
-            ClaudeStatus::Error         => ("✗",  Color::LightRed),
+            ClaudeStatus::Generating => ("◉", Color::LightYellow),
+            ClaudeStatus::Thinking => ("◌", Color::LightCyan),
+            ClaudeStatus::Executing => ("⚙", Color::LightYellow),
+            ClaudeStatus::Idle => ("○", Color::DarkGray),
+            ClaudeStatus::Error => ("✗", Color::LightRed),
         }
     }
 }

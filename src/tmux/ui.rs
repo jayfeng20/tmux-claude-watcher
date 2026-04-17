@@ -92,8 +92,7 @@ impl App {
         // Split the screen vertically: table takes all available space,
         // footer is a fixed single line at the bottom.
         let [table_area, footer_area] =
-            Layout::vertical([Constraint::Min(0), Constraint::Length(1)])
-                .areas(frame.area());
+            Layout::vertical([Constraint::Min(0), Constraint::Length(1)]).areas(frame.area());
 
         // Bold header row — column names match the data rendered below.
         let header = Row::new(["ID", "Session:Win", "State", "Last Focus", "Status For"])
@@ -136,7 +135,11 @@ impl App {
             ],
         )
         .header(header)
-        .block(Block::default().title("Tmux Pane Monitor").borders(Borders::ALL));
+        .block(
+            Block::default()
+                .title("Tmux Pane Monitor")
+                .borders(Borders::ALL),
+        );
 
         frame.render_widget(table, table_area);
 

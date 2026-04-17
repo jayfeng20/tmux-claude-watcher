@@ -22,18 +22,18 @@ fn pane_id_target_formats_correctly() {
 #[test]
 fn shell_kind_recognises_known_shells() {
     assert_eq!(ShellKind::from_process_name("bash"), Some(ShellKind::Bash));
-    assert_eq!(ShellKind::from_process_name("zsh"),  Some(ShellKind::Zsh));
+    assert_eq!(ShellKind::from_process_name("zsh"), Some(ShellKind::Zsh));
     assert_eq!(ShellKind::from_process_name("fish"), Some(ShellKind::Fish));
-    assert_eq!(ShellKind::from_process_name("sh"),   Some(ShellKind::Sh));
-    assert_eq!(ShellKind::from_process_name("dash"),  Some(ShellKind::Sh));
+    assert_eq!(ShellKind::from_process_name("sh"), Some(ShellKind::Sh));
+    assert_eq!(ShellKind::from_process_name("dash"), Some(ShellKind::Sh));
 }
 
 #[test]
 fn shell_kind_returns_none_for_unknown_process() {
     assert_eq!(ShellKind::from_process_name("python"), None);
-    assert_eq!(ShellKind::from_process_name("vim"),    None);
+    assert_eq!(ShellKind::from_process_name("vim"), None);
     assert_eq!(ShellKind::from_process_name("claude"), None);
-    assert_eq!(ShellKind::from_process_name(""),       None);
+    assert_eq!(ShellKind::from_process_name(""), None);
 }
 
 // ---------------------------------------------------------------------------
@@ -68,7 +68,10 @@ fn shell_status_awaiting_input_on_hash_prompt() {
 #[test]
 fn shell_status_processing_when_no_prompt_visible() {
     let content = "Running cargo build...\n   Compiling my-crate v0.1.0";
-    assert_eq!(ShellStatus::from_pane_content(content), ShellStatus::Processing);
+    assert_eq!(
+        ShellStatus::from_pane_content(content),
+        ShellStatus::Processing
+    );
 }
 
 #[test]
@@ -136,19 +139,28 @@ fn claude_status_executing_on_tool_marker() {
 #[test]
 fn claude_status_awaiting_input_on_box_drawing_chars() {
     let content = "Here is the answer.\n\n╭─────────────╮\n│ > type here │\n╰─────────────╯";
-    assert_eq!(ClaudeStatus::from_pane_content(content), ClaudeStatus::AwaitingInput);
+    assert_eq!(
+        ClaudeStatus::from_pane_content(content),
+        ClaudeStatus::AwaitingInput
+    );
 }
 
 #[test]
 fn claude_status_generating_when_content_present_with_no_markers() {
     let content = "The quick brown fox jumps over the lazy dog.";
-    assert_eq!(ClaudeStatus::from_pane_content(content), ClaudeStatus::Generating);
+    assert_eq!(
+        ClaudeStatus::from_pane_content(content),
+        ClaudeStatus::Generating
+    );
 }
 
 #[test]
 fn claude_status_idle_on_empty_content() {
     assert_eq!(ClaudeStatus::from_pane_content(""), ClaudeStatus::Idle);
-    assert_eq!(ClaudeStatus::from_pane_content("  \n  "), ClaudeStatus::Idle);
+    assert_eq!(
+        ClaudeStatus::from_pane_content("  \n  "),
+        ClaudeStatus::Idle
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -158,7 +170,10 @@ fn claude_status_idle_on_empty_content() {
 #[test]
 fn from_process_routes_known_shells_to_shell_variant() {
     let state = PaneState::from_process("bash", "user@host $");
-    assert!(matches!(state, PaneState::Shell(ShellKind::Bash, ShellStatus::AwaitingInput)));
+    assert!(matches!(
+        state,
+        PaneState::Shell(ShellKind::Bash, ShellStatus::AwaitingInput)
+    ));
 }
 
 #[test]
