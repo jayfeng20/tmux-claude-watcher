@@ -15,8 +15,8 @@ pub struct PaneInfo {
     pub current_cmd: String, // foreground process name reported by tmux
     pub state: PaneState,
     pub last_updated: SystemTime,
-    pub last_focused_at: SystemTime, // when pane_active last flipped false→true; UNIX_EPOCH if never observed
-    pub status_changed_at: SystemTime, // when PaneState last changed
+    pub last_focused_at: Option<SystemTime>, // when pane_active last flipped false→true; None if never observed
+    pub status_changed_at: Option<SystemTime>, // when PaneState last changed; None until first merge
 }
 
 /// Uniquely identifies a tmux pane.
@@ -109,6 +109,14 @@ pub enum ShellStatus {
     Error,         // error output visible
 }
 
+fn last_nonempty_line(content: &str) -> &str {
+    content
+        .lines()
+        .rev()
+        .find(|l| !l.trim().is_empty())
+        .unwrap_or("")
+}
+
 impl ShellStatus {
     /// Infers the shell's current status from the pane's visible content.
     /// Checks are evaluated in priority order.
@@ -126,7 +134,7 @@ impl ShellStatus {
     }
 
     fn has_error(content: &str) -> bool {
-        let last = Self::last_nonempty_line(content);
+        let last = last_nonempty_line(content);
         last.contains("command not found")
             || last.contains("No such file")
             || last.starts_with("bash:")
@@ -134,20 +142,12 @@ impl ShellStatus {
     }
 
     fn has_prompt(content: &str) -> bool {
-        let last = Self::last_nonempty_line(content).trim_end();
+        let last = last_nonempty_line(content).trim_end();
         last.ends_with('$')
             || last.ends_with('%')
             || last.ends_with('>')
             || last.ends_with('~')
             || last.ends_with('#')
-    }
-
-    fn last_nonempty_line(content: &str) -> &str {
-        content
-            .lines()
-            .rev()
-            .find(|l| !l.trim().is_empty())
-            .unwrap_or("")
     }
 
     fn display(&self) -> (&'static str, Color) {
@@ -199,8 +199,8 @@ impl ClaudeStatus {
 
     fn is_thinking(content: &str) -> bool {
         const SPINNERS: &[char] = &['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
-        let last = Self::last_nonempty_line(content);
-        last.chars().next().map_or(false, |c| SPINNERS.contains(&c))
+        let last = last_nonempty_line(content);
+        last.chars().next().is_some_and(|c| SPINNERS.contains(&c))
             || content.to_lowercase().contains("thinking")
     }
 
@@ -211,15 +211,7 @@ impl ClaudeStatus {
     fn is_awaiting_input(content: &str) -> bool {
         // Claude's input box uses box-drawing characters in the last few visible lines
         let last_few = content.lines().rev().take(5).collect::<Vec<_>>().join("\n");
-        last_few.contains('╭') || last_few.contains('│')
-    }
-
-    fn last_nonempty_line(content: &str) -> &str {
-        content
-            .lines()
-            .rev()
-            .find(|l| !l.trim().is_empty())
-            .unwrap_or("")
+        last_few.contains('╭') || last_few.contains('│') || last_few.contains('❯')
     }
 
     fn display(&self) -> (&'static str, Color) {

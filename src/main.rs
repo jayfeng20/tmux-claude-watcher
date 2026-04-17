@@ -70,11 +70,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             // User pressed a key.
             Some(Ok(Event::Key(key))) = events.next() => {
                 // Filter out key-release events (only process key-press/repeat).
-                if key.kind == KeyEventKind::Press {
-                    if let Some(action) = app.handle_key(key) {
-                        match action {
-                            AppAction::Quit => break,
-                        }
+                if key.kind == KeyEventKind::Press
+                    && let Some(action) = app.handle_key(key)
+                {
+                    match action {
+                        AppAction::Quit => break,
                     }
                 }
             }
