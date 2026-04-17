@@ -3,14 +3,14 @@
 //! Uses ratatui's [`TestBackend`] to render the UI into an in-memory buffer,
 //! so tests run without a real terminal or tmux session.
 
-use claude_pane_monitor::tmux::{
-    pane::{ClaudeStatus, PaneId, PaneInfo, PaneState, ShellKind, ShellStatus},
-    ui::{App, AppAction},
-};
 use crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyEventState, KeyModifiers};
 use ratatui::{Terminal, backend::TestBackend};
 use std::sync::Arc;
 use std::time::SystemTime;
+use tmux_monitor::tmux::{
+    pane::{ClaudeStatus, PaneId, PaneInfo, PaneState, ShellKind, ShellStatus},
+    ui::{App, AppAction},
+};
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -26,6 +26,7 @@ fn make_pane(session: &str, pane_id: u32, state: PaneState) -> PaneInfo {
             pane_id,
         },
         pane_active: false,
+        window_active: false,
         pane_in_mode: false,
         current_cmd: "bash".to_string(),
         state,
@@ -157,9 +158,9 @@ fn renders_never_for_unset_timing_fields() {
 fn renders_table_header() {
     let app = App::new();
     let output = render(&app);
-    assert!(output.contains("Session:Win"));
+    assert!(output.contains("ID"));
     assert!(output.contains("State"));
-    assert!(output.contains("Last Focus"));
+    assert!(output.contains("Last Visited"));
 }
 
 #[test]
@@ -231,7 +232,7 @@ fn j_key_moves_selection_down() {
     // After two j presses on 2 panes, selection wraps back to first.
     let output_after_wrap = render(&app);
     // First pane's session appears somewhere near top of table.
-    assert!(output_after_wrap.contains("s:win"));
+    assert!(output_after_wrap.contains("s:0."));
 }
 
 #[test]
@@ -254,7 +255,7 @@ fn k_key_on_first_row_does_not_underflow() {
     )]));
     // Pressing k at the top row should clamp — no panic, no wrap.
     app.handle_key(press(KeyCode::Char('k')));
-    assert!(render(&app).contains("s:win")); // still renders fine
+    assert!(render(&app).contains("s:0.")); // still renders fine
 }
 
 #[test]
@@ -291,5 +292,5 @@ fn update_panes_clamps_selection_when_list_shrinks() {
     )]));
 
     // Should still render without panic.
-    assert!(render(&app).contains("s:win"));
+    assert!(render(&app).contains("s:0."));
 }

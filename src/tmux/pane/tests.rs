@@ -12,7 +12,7 @@ fn pane_id_target_formats_correctly() {
         window_name: "editor".to_string(),
         pane_id: 3,
     };
-    assert_eq!(id.target(), "main:editor.3");
+    assert_eq!(id.target(), "main:1.3");
 }
 
 // ---------------------------------------------------------------------------

@@ -1,5 +1,3 @@
-//! Claude Pane Monitor — library entry point.
-//!
-//! Exposes the [`tmux`] module so integration tests and the binary
-//! can share the same type definitions and logic.
+//! tmux-monitor — library entry point.
+pub mod theme;
 pub mod tmux;

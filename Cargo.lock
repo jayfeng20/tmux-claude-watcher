@@ -120,20 +120,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "613afe47fcd5fac7ccf1db93babcb082c5994d996f20b8b159f2ad1658eb5724"
 
 [[package]]
-name = "claude-pane-monitor"
-version = "0.1.0"
-dependencies = [
- "crossterm",
- "futures",
- "ratatui",
- "strum 0.28.0",
- "tokio",
- "tracing",
- "tracing-appender",
- "tracing-subscriber",
-]
-
-[[package]]
 name = "compact_str"
 version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1553,6 +1539,20 @@ checksum = "2e70e4c5a0e0a8a4823ad65dfe1a6930e4f4d756dcd9dd7939022b5e8c501215"
 dependencies = [
  "num-conv",
  "time-core",
+]
+
+[[package]]
+name = "tmux-monitor"
+version = "0.1.0"
+dependencies = [
+ "crossterm",
+ "futures",
+ "ratatui",
+ "strum 0.28.0",
+ "tokio",
+ "tracing",
+ "tracing-appender",
+ "tracing-subscriber",
 ]
 
 [[package]]
