@@ -18,7 +18,7 @@ use ratatui::{
     widgets::{Block, Borders, Cell, Paragraph, Row, Table},
 };
 use std::sync::Arc;
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::time::SystemTime;
 
 /// High-level actions produced by input handling and dispatched by `main`.
 ///
@@ -36,6 +36,12 @@ pub struct App {
     /// Latest snapshot of active panes, shared via [`Arc`] to avoid deep copies.
     pub panes: Arc<Vec<PaneInfo>>,
     selected: usize,
+}
+
+impl Default for App {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl App {
@@ -150,14 +156,11 @@ impl App {
     }
 }
 
-/// Formats a [`SystemTime`] as a human-readable "X ago" string.
-///
-/// Returns `"never"` for [`UNIX_EPOCH`] (the unset sentinel),
-/// `"Xs ago"` for durations under a minute, and `"Xm ago"` otherwise.
-fn format_ago(t: SystemTime) -> String {
-    if t == UNIX_EPOCH {
-        return "never".to_string();
-    }
+fn format_ago(t: Option<SystemTime>) -> String {
+    let t = match t {
+        None => return "never".to_string(),
+        Some(t) => t,
+    };
     match t.elapsed() {
         Ok(d) if d.as_secs() < 60 => format!("{}s ago", d.as_secs()),
         Ok(d) => format!("{}m ago", d.as_secs() / 60),

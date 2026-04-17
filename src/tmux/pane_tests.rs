@@ -146,6 +146,15 @@ fn claude_status_awaiting_input_on_box_drawing_chars() {
 }
 
 #[test]
+fn claude_status_awaiting_input_on_option_prompt() {
+    let content = "Do you want to make this edit to foo.rs?\n❯ 1. Yes\n  2. No\n  3. Yes, always";
+    assert_eq!(
+        ClaudeStatus::from_pane_content(content),
+        ClaudeStatus::AwaitingInput
+    );
+}
+
+#[test]
 fn claude_status_generating_when_content_present_with_no_markers() {
     let content = "The quick brown fox jumps over the lazy dog.";
     assert_eq!(

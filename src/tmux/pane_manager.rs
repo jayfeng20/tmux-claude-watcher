@@ -10,11 +10,8 @@ use std::collections::HashMap;
 use std::error::Error;
 use std::process::Command;
 use std::sync::Arc;
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::time::SystemTime;
 use strum::{AsRefStr, EnumIter, EnumString, IntoEnumIterator};
-
-/// Placeholder for timing fields that are always overwritten by [`PaneManager::merge_panes`].
-const TIMING_PENDING: SystemTime = UNIX_EPOCH;
 
 /// Tmux format variables used to query pane information.
 /// Declaration order determines the `list-panes` output format — do not reorder.
@@ -95,9 +92,9 @@ impl PaneManager {
                     pane_in_mode: raw.pane_in_mode,
                     current_cmd: raw.current_cmd,
                     last_updated: SystemTime::now(),
-                    // Set by merge_panes — TIMING_PENDING is never visible to callers.
-                    last_focused_at: TIMING_PENDING,
-                    status_changed_at: TIMING_PENDING,
+                    // fresh pane status is just a snapshot and has no history
+                    last_focused_at: None,
+                    status_changed_at: None,
                 }
             })
             .collect();
@@ -190,13 +187,13 @@ impl PaneManager {
                 Some(p) => {
                     pane.status_changed_at = if p.state != pane.state {
                         tracing::debug!(pane_id = pane.id.pane_id, old = ?p.state, new = ?pane.state, "state changed");
-                        SystemTime::now()
+                        Some(SystemTime::now())
                     } else {
                         p.status_changed_at
                     };
                     pane.last_focused_at = if !p.pane_active && pane.pane_active {
                         tracing::debug!(pane_id = pane.id.pane_id, "pane focused");
-                        SystemTime::now()
+                        Some(SystemTime::now())
                     } else {
                         p.last_focused_at
                     };
@@ -204,8 +201,8 @@ impl PaneManager {
                 // New pane — start its timers from now.
                 None => {
                     tracing::debug!(pane_id = pane.id.pane_id, cmd = %pane.current_cmd, "new pane discovered");
-                    pane.status_changed_at = SystemTime::now();
-                    pane.last_focused_at = UNIX_EPOCH;
+                    pane.status_changed_at = Some(SystemTime::now());
+                    pane.last_focused_at = None;
                 }
             }
         }

@@ -10,7 +10,7 @@ use claude_pane_monitor::tmux::{
 use crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyEventState, KeyModifiers};
 use ratatui::{Terminal, backend::TestBackend};
 use std::sync::Arc;
-use std::time::UNIX_EPOCH;
+use std::time::SystemTime;
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -29,9 +29,9 @@ fn make_pane(session: &str, pane_id: u32, state: PaneState) -> PaneInfo {
         pane_in_mode: false,
         current_cmd: "bash".to_string(),
         state,
-        last_updated: UNIX_EPOCH,
-        last_focused_at: UNIX_EPOCH,
-        status_changed_at: UNIX_EPOCH,
+        last_updated: SystemTime::now(),
+        last_focused_at: None,
+        status_changed_at: None,
     }
 }
 
