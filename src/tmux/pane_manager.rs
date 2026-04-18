@@ -92,7 +92,7 @@ impl PaneManager {
                     tracing::warn!(target = %raw.id.target(), error = %e, "capture-pane failed");
                     String::new()
                 });
-                let state = PaneState::from_process(&raw.current_cmd, &content);
+                let state = PaneState::from_process(&raw.current_cmd, &content, raw.pane_in_mode);
                 let last_focused_at = match raw.pane_last_active_secs {
                     0 => None,
                     secs => Some(UNIX_EPOCH + Duration::from_secs(secs)),

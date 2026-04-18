@@ -15,12 +15,23 @@ use ratatui::{Terminal, backend::CrosstermBackend};
 use std::sync::Arc;
 use std::time::Duration;
 use tmux_claude_watcher::tmux::{
+    pane_actions::jump_to_pane,
     pane_manager::PaneManager,
     ui::{App, AppAction},
 };
 
+/// Exits with a clear message if not running inside a tmux session.
+fn require_tmux() {
+    if std::env::var("TMUX").is_err() {
+        eprintln!("error: tc-watcher must be run inside a tmux session.");
+        eprintln!("example: tmux new-session -s <your-session-name>");
+        std::process::exit(1);
+    }
+}
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    require_tmux();
     // Log to a rolling daily file — we must not write to stdout while ratatui owns it.
     let file_appender = tracing_appender::rolling::daily("/tmp", "tmux-claude-watcher.log");
     let (non_blocking, _guard) = tracing_appender::non_blocking(file_appender);
@@ -75,6 +86,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                 {
                     match action {
                         AppAction::Quit => break,
+                        AppAction::JumpToPane(id) => {
+                            if let Err(e) = jump_to_pane(&id) {
+                                tracing::error!(error = %e, "jump to pane failed");
+                                app.set_error(e.to_string());
+                            }
+                        }
                     }
                 }
             }

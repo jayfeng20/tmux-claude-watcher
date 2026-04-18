@@ -1,3 +1,5 @@
+//! Claude Code pane classification — infers status from visible pane content.
+
 use crate::theme;
 use ratatui::style::Color;
 
@@ -100,42 +102,43 @@ impl ClaudeStatus {
     /// Returns the non-empty lines that appear above the input box, or `None` if no
     /// input box is found.
     ///
-    /// The input box is bounded top and bottom by a separator line containing `"───"`
-    /// (three or more `─` chars). Using a minimum run of three avoids matching a
-    /// stray single `─` that might appear in conversation content.
-    ///
-    /// By locating both separator lines first, callers avoid inspecting text the user
-    /// typed inside the box — which may be arbitrarily long and contain characters
-    /// that would otherwise cause false positives (e.g. `?` in `is_asking_question`).
-    ///
-    /// Only the bottom 8 non-empty lines are scanned for separators to avoid matching
-    /// a separator-like line deep in the conversation history.
+    /// The input box is bounded top and bottom by a separator line containing `"───"`.
+    /// Uses a two-pass approach: find the bottom separator within the last 3 non-empty
+    /// lines (it is always at the very end of the visible pane), then scan upward from
+    /// there to find the top separator. This correctly handles multi-line input — the
+    /// user may have typed or pasted many lines, pushing the top separator arbitrarily
+    /// far from the bottom.
     fn lines_above_input_box<'a>(content: &'a str) -> Option<Vec<&'a str>> {
         let non_empty: Vec<&'a str> = content.lines().filter(|l| !l.trim().is_empty()).collect();
 
-        let mut separators_seen = 0;
-        let mut above_idx = None;
-        for (i, line) in non_empty.iter().enumerate().rev().take(8) {
-            if line.contains("───") {
-                separators_seen += 1;
-                if separators_seen == 2 {
-                    above_idx = Some(i);
-                    break;
-                }
-            }
-        }
+        // Pass 1: bottom separator must be within the last 3 non-empty lines.
+        let bottom_idx = non_empty
+            .iter()
+            .enumerate()
+            .rev()
+            .take(3)
+            .find(|(_, l)| l.contains("───"))
+            .map(|(i, _)| i)?;
 
-        above_idx.map(|idx| non_empty[..idx].to_vec())
+        // Pass 2: scan upward from just above the bottom separator for the top separator.
+        let top_idx = non_empty[..bottom_idx]
+            .iter()
+            .enumerate()
+            .rev()
+            .find(|(_, l)| l.contains("───"))
+            .map(|(i, _)| i)?;
+
+        Some(non_empty[..top_idx].to_vec())
     }
 
     pub(super) fn display(&self) -> (&'static str, Color) {
         match self {
-            ClaudeStatus::AwaitingInput => ("❯", theme::RED),
-            ClaudeStatus::Done => ("✓", theme::GREEN),
-            ClaudeStatus::AwaitingPermission => ("!", theme::RED),
-            ClaudeStatus::Thinking => ("◌", theme::PEACH),
-            ClaudeStatus::Executing => ("◑", theme::YELLOW),
-            ClaudeStatus::Unknown => ("?", theme::OVERLAY0),
+            ClaudeStatus::AwaitingInput => theme::ICON_AWAITING_INPUT,
+            ClaudeStatus::Done => theme::ICON_DONE,
+            ClaudeStatus::AwaitingPermission => theme::ICON_AWAITING_PERMISSION,
+            ClaudeStatus::Thinking => theme::ICON_THINKING,
+            ClaudeStatus::Executing => theme::ICON_EXECUTING,
+            ClaudeStatus::Unknown => theme::ICON_UNKNOWN,
         }
     }
 }

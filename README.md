@@ -12,7 +12,7 @@ Built with special awareness of [Claude Code](https://claude.ai/code): panes run
 - **State classification** — distinguishes shell vs. Claude panes and their sub-states
 - **Timing column** — shows how long each pane has been in its current state
 - **Active column** — shows only panes that are truly receiving keyboard input (attached session + active window + active pane)
-- **Keyboard navigation** — scroll through panes with `j`/`k` or arrow keys
+- **Keyboard navigation** — scroll through panes with `j`/`k` or arrow keys; press `↵` to jump directly to a pane
 - **Non-intrusive logging** — writes to a rolling daily file in `/tmp` so stdout is never polluted while the TUI is active
 
 ---
@@ -38,12 +38,19 @@ Built with special awareness of [Claude Code](https://claude.ai/code): panes run
 | `❯`  | red   | Awaiting Input | Process running or requesting input            |
 | `✗`  | red   | Error          | Error output on the last line                  |
 
+### tc-watcher panes
+
+| Icon | Color  | State  | Meaning                                                  |
+|------|--------|--------|----------------------------------------------------------|
+| `○`  | green  | Active | Monitor is running and polling pane states               |
+| `⏸`  | yellow | Paused | Pane is in tmux copy/scroll mode — output is frozen      |
+
 ---
 
 ## Requirements
 
 - [Rust](https://www.rust-lang.org/tools/install) 1.85 or later (edition 2024)
-- [tmux](https://github.com/tmux/tmux) installed and a session must be running
+- [tmux](https://github.com/tmux/tmux) installed; **tc-watcher must be launched from inside a tmux session**
 - A terminal emulator with Unicode and 256-color support
 
 ---
@@ -56,12 +63,12 @@ cd tmux-claude-watcher
 cargo build --release
 ```
 
-The compiled binary will be at `target/release/tmux-claude-watcher`.
+The compiled binary will be at `target/release/tc-watcher`.
 
 Optionally, copy it somewhere on your `$PATH`:
 
 ```bash
-cp target/release/tmux-claude-watcher ~/.local/bin/
+cp target/release/tc-watcher ~/.local/bin/
 ```
 
 ---
@@ -133,13 +140,18 @@ tmux list-panes -a
 
 ### Key bindings
 
-| Key         | Action              |
-|-------------|---------------------|
-| `q` / `Q`   | Quit                |
-| `j` / `↓`   | Move selection down |
-| `k` / `↑`   | Move selection up   |
-| `?`         | Toggle help panel   |
-| `Esc`       | Close help panel    |
+| Key         | Action                       |
+|-------------|------------------------------|
+| `↵ Enter`   | Jump to selected pane        |
+| `q` / `Q`   | Quit                         |
+| `j` / `↓`   | Move selection down          |
+| `k` / `↑`   | Move selection up            |
+| `?`         | Toggle help panel            |
+| `Esc`       | Close help panel             |
+
+**Jump to pane** runs `tmux switch-client` to bring the selected pane into focus. If the pane no longer exists a red error banner appears at the bottom of the monitor for 5 seconds.
+
+**Returning to the monitor** after jumping: use `prefix + L` (last window), `prefix + <number>` (window by index), or `prefix + p`/`n` (previous/next window).
 
 ### Logs
 

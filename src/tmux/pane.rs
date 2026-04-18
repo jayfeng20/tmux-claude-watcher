@@ -1,3 +1,10 @@
+//! Pane data types, state classification, and table cell rendering.
+//!
+//! [`PaneState`] is the central enum — each variant encodes both the process
+//! type and its current activity. [`PaneState::from_process`] constructs one
+//! from a tmux process name and the pane's visible content. The `type_cell` and
+//! `state_cell` methods produce styled [`ratatui`] spans for the table columns.
+
 use crate::theme;
 use ratatui::style::Style;
 use ratatui::text::{Line, Span};
@@ -5,9 +12,11 @@ use std::time::SystemTime;
 
 mod claude;
 mod shell;
+mod tc_watcher;
 
 pub use claude::ClaudeStatus;
 pub use shell::{ShellKind, ShellStatus};
+pub use tc_watcher::TcWatcherStatus;
 
 #[cfg(test)]
 mod tests;
@@ -57,6 +66,7 @@ impl PaneId {
 pub enum PaneState {
     Shell(ShellKind, ShellStatus),
     Claude(ClaudeStatus),
+    TcWatcher(TcWatcherStatus),
     Other(String), // unrecognized process — name stored for display
 }
 
@@ -94,8 +104,19 @@ fn is_claude_process(cmd: &str) -> bool {
 }
 
 impl PaneState {
-    /// Constructs a `PaneState` from a tmux process name and the pane's visible content.
-    pub fn from_process(cmd: &str, content: &str) -> PaneState {
+    /// Constructs a `PaneState` from a tmux process name, visible content, and copy-mode flag.
+    ///
+    /// `TcWatcher(Stopped)` is never produced here — it is inferred by
+    /// [`crate::tmux::pane_manager::PaneManager`] when a pane transitions from
+    /// `TcWatcher(_)` to a shell process.
+    pub fn from_process(cmd: &str, content: &str, pane_in_mode: bool) -> PaneState {
+        if cmd == "tc-watcher" {
+            return PaneState::TcWatcher(if pane_in_mode {
+                TcWatcherStatus::Paused
+            } else {
+                TcWatcherStatus::Active
+            });
+        }
         if let Some(kind) = ShellKind::from_process_name(cmd) {
             return PaneState::Shell(kind, ShellStatus::from_pane_content(content));
         }
@@ -108,32 +129,33 @@ impl PaneState {
     /// Returns a styled [`Line`] for the Type column (the process name).
     pub fn type_cell(&self) -> Line<'_> {
         match self {
-            PaneState::Shell(kind, _) => Line::from(kind.as_ref()),
-            PaneState::Claude(_) => {
-                Line::from(Span::styled("claude", Style::default().fg(theme::PEACH)))
-            }
-            PaneState::Other(name) => Line::from(Span::styled(
-                name.as_str(),
-                Style::default().fg(theme::OVERLAY0),
+            PaneState::Shell(kind, _) => Line::from(Span::styled(
+                kind.as_ref(),
+                Style::default().fg(theme::SHELL_LABEL),
             )),
+            PaneState::Claude(_) => Line::from(Span::styled(
+                "claude",
+                Style::default().fg(theme::CLAUDE_LABEL),
+            )),
+            PaneState::TcWatcher(_) => Line::from(Span::styled(
+                "tc-watcher",
+                Style::default().fg(theme::TC_WATCHER_LABEL),
+            )),
+            PaneState::Other(name) => {
+                Line::from(Span::styled(name.as_str(), Style::default().fg(theme::DIM)))
+            }
         }
     }
 
     /// Returns a styled [`Line`] for the State column (icon only).
     pub fn state_cell(&self) -> Line<'_> {
-        match self {
-            PaneState::Shell(_, status) => {
-                let (icon, color) = status.display();
-                Line::from(Span::styled(icon, Style::default().fg(color)))
-            }
-            PaneState::Claude(status) => {
-                let (icon, color) = status.display();
-                Line::from(Span::styled(icon, Style::default().fg(color)))
-            }
-            PaneState::Other(_) => {
-                Line::from(Span::styled("?", Style::default().fg(theme::SUBTEXT0)))
-            }
-        }
+        let (icon, color) = match self {
+            PaneState::Shell(_, status) => status.display(),
+            PaneState::Claude(status) => status.display(),
+            PaneState::TcWatcher(status) => status.display(),
+            PaneState::Other(_) => theme::ICON_UNKNOWN,
+        };
+        Line::from(Span::styled(icon, Style::default().fg(color)))
     }
 }
 

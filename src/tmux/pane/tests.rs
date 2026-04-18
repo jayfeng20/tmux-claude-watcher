@@ -185,6 +185,38 @@ fn claude_status_done_when_input_box_visible_without_question() {
     assert_eq!(ClaudeStatus::from_pane_content(content), ClaudeStatus::Done);
 }
 
+#[test]
+fn claude_status_done_with_many_lines_in_input_box() {
+    // User pasted 15 lines into the input box — top separator is far from the bottom.
+    // Previously failed because the scanner only looked at the last 8 non-empty lines.
+    let typed_lines = (0..15)
+        .map(|i| format!("line {i}"))
+        .collect::<Vec<_>>()
+        .join("\n");
+    let content = format!(
+        "✻ Churned for 43s\n\n────────────────────────────────────────\n{typed_lines}\n────────────────────────────────────────"
+    );
+    assert_eq!(
+        ClaudeStatus::from_pane_content(&content),
+        ClaudeStatus::Done
+    );
+}
+
+#[test]
+fn claude_status_awaiting_input_with_many_lines_in_input_box() {
+    let typed_lines = (0..15)
+        .map(|i| format!("line {i}"))
+        .collect::<Vec<_>>()
+        .join("\n");
+    let content = format!(
+        "Should I continue?\n\n────────────────────────────────────────\n{typed_lines}\n────────────────────────────────────────"
+    );
+    assert_eq!(
+        ClaudeStatus::from_pane_content(&content),
+        ClaudeStatus::AwaitingInput
+    );
+}
+
 // ❯ alone (without ╭ or permission prompt markers) should NOT trigger AwaitingInput —
 // it also appears in the input area while Claude is actively working.
 #[test]
@@ -217,7 +249,7 @@ fn claude_status_unknown_when_no_recognisable_markers() {
 
 #[test]
 fn from_process_routes_known_shells_to_shell_variant() {
-    let state = PaneState::from_process("bash", "user@host $");
+    let state = PaneState::from_process("bash", "user@host $", false);
     assert!(matches!(
         state,
         PaneState::Shell(ShellKind::Bash, ShellStatus::Idle)
@@ -226,14 +258,32 @@ fn from_process_routes_known_shells_to_shell_variant() {
 
 #[test]
 fn from_process_routes_claude_to_claude_variant() {
-    let state = PaneState::from_process("claude", "");
+    let state = PaneState::from_process("claude", "", false);
     assert!(matches!(state, PaneState::Claude(ClaudeStatus::Unknown)));
 }
 
 #[test]
 fn from_process_routes_unknown_process_to_other() {
-    let state = PaneState::from_process("vim", "");
+    let state = PaneState::from_process("vim", "", false);
     assert_eq!(state, PaneState::Other("vim".to_string()));
+}
+
+#[test]
+fn from_process_routes_tc_watcher_active() {
+    let state = PaneState::from_process("tc-watcher", "", false);
+    assert!(matches!(
+        state,
+        PaneState::TcWatcher(TcWatcherStatus::Active)
+    ));
+}
+
+#[test]
+fn from_process_routes_tc_watcher_paused_in_copy_mode() {
+    let state = PaneState::from_process("tc-watcher", "", true);
+    assert!(matches!(
+        state,
+        PaneState::TcWatcher(TcWatcherStatus::Paused)
+    ));
 }
 
 // ---------------------------------------------------------------------------
