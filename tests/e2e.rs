@@ -251,7 +251,33 @@ fn capital_q_key_returns_quit_action() {
 fn unbound_key_returns_no_action() {
     let mut app = App::new();
     assert!(app.handle_key(press(KeyCode::Char('x'))).is_none());
+}
+
+#[test]
+fn enter_on_empty_pane_list_returns_no_action() {
+    let mut app = App::new();
     assert!(app.handle_key(press(KeyCode::Enter)).is_none());
+}
+
+#[test]
+fn enter_returns_jump_to_pane_with_correct_id() {
+    let mut app = App::new();
+    app.update_panes(Arc::new(vec![
+        make_pane(
+            "work",
+            3,
+            PaneState::Shell(ShellKind::Zsh, ShellStatus::Idle),
+        ),
+        make_pane("work", 7, PaneState::Claude(ClaudeStatus::Done)),
+    ]));
+    // Navigate to second row then press Enter.
+    app.handle_key(press(KeyCode::Char('j')));
+    let action = app.handle_key(press(KeyCode::Enter));
+    assert!(
+        matches!(action, Some(AppAction::JumpToPane(ref id)) if id.pane_id == 7),
+        "expected JumpToPane with pane_id 7, got {:?}",
+        action.as_ref().map(|_| "Some(other)")
+    );
 }
 
 // ---------------------------------------------------------------------------

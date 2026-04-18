@@ -108,14 +108,17 @@ impl PaneState {
     /// Returns a styled [`Line`] for the Type column (the process name).
     pub fn type_cell(&self) -> Line<'_> {
         match self {
-            PaneState::Shell(kind, _) => Line::from(kind.as_ref()),
-            PaneState::Claude(_) => {
-                Line::from(Span::styled("claude", Style::default().fg(theme::PEACH)))
-            }
-            PaneState::Other(name) => Line::from(Span::styled(
-                name.as_str(),
-                Style::default().fg(theme::OVERLAY0),
+            PaneState::Shell(kind, _) => Line::from(Span::styled(
+                kind.as_ref(),
+                Style::default().fg(theme::SHELL_LABEL),
             )),
+            PaneState::Claude(_) => Line::from(Span::styled(
+                "claude",
+                Style::default().fg(theme::CLAUDE_LABEL),
+            )),
+            PaneState::Other(name) => {
+                Line::from(Span::styled(name.as_str(), Style::default().fg(theme::DIM)))
+            }
         }
     }
 
@@ -131,7 +134,7 @@ impl PaneState {
                 Line::from(Span::styled(icon, Style::default().fg(color)))
             }
             PaneState::Other(_) => {
-                Line::from(Span::styled("?", Style::default().fg(theme::SUBTEXT0)))
+                Line::from(Span::styled("?", Style::default().fg(theme::SUBTLE)))
             }
         }
     }

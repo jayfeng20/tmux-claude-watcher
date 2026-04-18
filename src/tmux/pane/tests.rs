@@ -185,6 +185,38 @@ fn claude_status_done_when_input_box_visible_without_question() {
     assert_eq!(ClaudeStatus::from_pane_content(content), ClaudeStatus::Done);
 }
 
+#[test]
+fn claude_status_done_with_many_lines_in_input_box() {
+    // User pasted 15 lines into the input box — top separator is far from the bottom.
+    // Previously failed because the scanner only looked at the last 8 non-empty lines.
+    let typed_lines = (0..15)
+        .map(|i| format!("line {i}"))
+        .collect::<Vec<_>>()
+        .join("\n");
+    let content = format!(
+        "✻ Churned for 43s\n\n────────────────────────────────────────\n{typed_lines}\n────────────────────────────────────────"
+    );
+    assert_eq!(
+        ClaudeStatus::from_pane_content(&content),
+        ClaudeStatus::Done
+    );
+}
+
+#[test]
+fn claude_status_awaiting_input_with_many_lines_in_input_box() {
+    let typed_lines = (0..15)
+        .map(|i| format!("line {i}"))
+        .collect::<Vec<_>>()
+        .join("\n");
+    let content = format!(
+        "Should I continue?\n\n────────────────────────────────────────\n{typed_lines}\n────────────────────────────────────────"
+    );
+    assert_eq!(
+        ClaudeStatus::from_pane_content(&content),
+        ClaudeStatus::AwaitingInput
+    );
+}
+
 // ❯ alone (without ╭ or permission prompt markers) should NOT trigger AwaitingInput —
 // it also appears in the input area while Claude is actively working.
 #[test]

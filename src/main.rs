@@ -15,7 +15,7 @@ use ratatui::{Terminal, backend::CrosstermBackend};
 use std::sync::Arc;
 use std::time::Duration;
 use tmux_claude_watcher::tmux::{
-    pane_manager::PaneManager,
+    pane_manager::{PaneManager, jump_to_pane},
     ui::{App, AppAction},
 };
 
@@ -75,6 +75,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                 {
                     match action {
                         AppAction::Quit => break,
+                        AppAction::JumpToPane(id) => {
+                            if let Err(e) = jump_to_pane(&id) {
+                                tracing::error!(error = %e, "jump to pane failed");
+                                app.set_error(e.to_string());
+                            }
+                        }
                     }
                 }
             }

@@ -223,6 +223,21 @@ impl PaneManager {
     }
 }
 
+/// Runs `tmux switch-client -t <target>` to focus the given pane in the terminal.
+pub fn jump_to_pane(id: &PaneId) -> Result<(), Box<dyn Error + Send + Sync>> {
+    let status = Command::new("tmux")
+        .args(["switch-client", "-t", &id.target()])
+        .status()?;
+    if !status.success() {
+        return Err(format!(
+            "tmux switch-client failed for target {} — does it still exist?",
+            id.target()
+        )
+        .into());
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 #[path = "pane_manager_tests.rs"]
 mod tests;
