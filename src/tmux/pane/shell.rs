@@ -1,3 +1,5 @@
+//! Shell pane classification — kind (bash/zsh/fish/sh) and status (idle/awaiting/error).
+
 use crate::theme;
 use ratatui::style::Color;
 use strum::AsRefStr;
@@ -68,9 +70,9 @@ impl ShellStatus {
 
     pub(super) fn display(&self) -> (&'static str, Color) {
         match self {
-            ShellStatus::Idle => ("○", theme::GREEN),
-            ShellStatus::AwaitingInput => ("❯", theme::RED),
-            ShellStatus::Error => ("✗", theme::RED),
+            ShellStatus::Idle => theme::ICON_IDLE,
+            ShellStatus::AwaitingInput => theme::ICON_AWAITING_INPUT,
+            ShellStatus::Error => theme::ICON_ERROR,
         }
     }
 }

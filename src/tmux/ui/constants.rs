@@ -20,7 +20,7 @@ pub const COL_LAST_UPDATED_WIDTH: u16 = 13;
 // ---------------------------------------------------------------------------
 
 pub const HELP_WIDTH: u16 = 44;
-pub const HELP_HEIGHT: u16 = 26;
+pub const HELP_HEIGHT: u16 = 28;
 
 /// Display-column width for the label column in the Columns section.
 /// Sized to the widest entry: "Last Updated" (12 chars) + 1 space = 13.
@@ -33,6 +33,10 @@ pub const HELP_KEY_LABEL_PAD: usize = 9;
 /// Display-column width for the description column in the State icons section.
 /// Sized to the widest entry: " Awaiting input" (15 chars) + 2 spaces = 17.
 pub const HELP_ICON_DESC_PAD: usize = 17;
+
+/// Display-column width for the process-type tag column in the State icons section.
+/// Sized to the widest entry: "(tc-watcher)" (12 chars) + 1 space = 13.
+pub const HELP_TAG_WIDTH: usize = 13;
 
 // ---------------------------------------------------------------------------
 // Footer

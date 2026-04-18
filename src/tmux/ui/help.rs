@@ -5,7 +5,8 @@
 //! bindings — each built by its own function and assembled in `render`.
 
 use super::constants::{
-    HELP_COL_LABEL_PAD, HELP_HEIGHT, HELP_ICON_DESC_PAD, HELP_KEY_LABEL_PAD, HELP_WIDTH,
+    HELP_COL_LABEL_PAD, HELP_HEIGHT, HELP_ICON_DESC_PAD, HELP_KEY_LABEL_PAD, HELP_TAG_WIDTH,
+    HELP_WIDTH,
 };
 use crate::theme;
 use ratatui::{
@@ -39,50 +40,56 @@ pub(super) fn render(frame: &mut Frame) {
 }
 
 fn state_icons() -> Vec<Line<'static>> {
-    let dim = Style::default().fg(theme::DIM);
     let bold = Style::default().add_modifier(Modifier::BOLD);
 
     vec![
         Line::from(Span::styled("State icons", bold)),
-        icon(theme::PEACH, "◌ ", "Thinking", Some(theme::CLAUDE_LABEL)),
-        icon(theme::YELLOW, "◑ ", "Executing", Some(theme::CLAUDE_LABEL)),
-        icon(theme::RED, "❯ ", "Awaiting input", None),
+        icon(theme::ICON_THINKING, "Thinking", Some(theme::CLAUDE_LABEL)),
         icon(
-            theme::RED,
-            "! ",
+            theme::ICON_EXECUTING,
+            "Executing",
+            Some(theme::CLAUDE_LABEL),
+        ),
+        icon(theme::ICON_AWAITING_INPUT, "Awaiting input", None),
+        icon(
+            theme::ICON_AWAITING_PERMISSION,
             "Awaiting perm.",
             Some(theme::CLAUDE_LABEL),
         ),
-        icon(theme::GREEN, "✓ ", "Done", Some(theme::CLAUDE_LABEL)),
-        icon(theme::GREEN, "○ ", "Idle", Some(theme::SHELL_LABEL)),
-        icon(theme::RED, "✗ ", "Error", Some(theme::SHELL_LABEL)),
-        Line::from(vec![
-            Span::styled("? ", dim),
-            Span::raw(format!("{:<width$}", "Unknown", width = HELP_ICON_DESC_PAD)),
-        ]),
+        icon(theme::ICON_DONE, "Done", Some(theme::CLAUDE_LABEL)),
+        icon(theme::ICON_IDLE, "Idle", Some(theme::SHELL_LABEL)),
+        icon(theme::ICON_ERROR, "Error", Some(theme::SHELL_LABEL)),
+        icon(theme::ICON_IDLE, "Active", Some(theme::TC_WATCHER_LABEL)),
+        icon(theme::ICON_PAUSED, "Paused", Some(theme::TC_WATCHER_LABEL)),
+        icon(theme::ICON_UNKNOWN, "Unknown", None),
     ]
 }
 
 /// One state-icon row: colored icon, plain description padded to `HELP_ICON_DESC_PAD`,
 /// and an optional colored process-type tag.
 fn icon(
-    icon_color: ratatui::style::Color,
-    symbol: &'static str,
+    state: (&'static str, ratatui::style::Color),
     label: &'static str,
     tag: Option<ratatui::style::Color>,
 ) -> Line<'static> {
+    let symbol = format!("{} ", state.0);
     let padded = format!("{:<width$}", label, width = HELP_ICON_DESC_PAD);
     let mut spans = vec![
-        Span::styled(symbol, Style::default().fg(icon_color)),
+        Span::styled(symbol, Style::default().fg(state.1)),
         Span::raw(padded),
     ];
     if let Some(color) = tag {
-        let text = if color == theme::CLAUDE_LABEL {
+        let label = if color == theme::CLAUDE_LABEL {
             "(claude)"
+        } else if color == theme::SHELL_LABEL {
+            "(shell)"
         } else {
-            "(shell) "
+            "(tc-watcher)"
         };
-        spans.push(Span::styled(text, Style::default().fg(color)));
+        spans.push(Span::styled(
+            format!("{:<width$}", label, width = HELP_TAG_WIDTH),
+            Style::default().fg(color),
+        ));
     }
     Line::from(spans)
 }

@@ -1,3 +1,5 @@
+//! Claude Code pane classification — infers status from visible pane content.
+
 use crate::theme;
 use ratatui::style::Color;
 
@@ -131,12 +133,12 @@ impl ClaudeStatus {
 
     pub(super) fn display(&self) -> (&'static str, Color) {
         match self {
-            ClaudeStatus::AwaitingInput => ("❯", theme::RED),
-            ClaudeStatus::Done => ("✓", theme::GREEN),
-            ClaudeStatus::AwaitingPermission => ("!", theme::RED),
-            ClaudeStatus::Thinking => ("◌", theme::PEACH),
-            ClaudeStatus::Executing => ("◑", theme::YELLOW),
-            ClaudeStatus::Unknown => ("?", theme::DIM),
+            ClaudeStatus::AwaitingInput => theme::ICON_AWAITING_INPUT,
+            ClaudeStatus::Done => theme::ICON_DONE,
+            ClaudeStatus::AwaitingPermission => theme::ICON_AWAITING_PERMISSION,
+            ClaudeStatus::Thinking => theme::ICON_THINKING,
+            ClaudeStatus::Executing => theme::ICON_EXECUTING,
+            ClaudeStatus::Unknown => theme::ICON_UNKNOWN,
         }
     }
 }

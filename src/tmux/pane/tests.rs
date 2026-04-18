@@ -249,7 +249,7 @@ fn claude_status_unknown_when_no_recognisable_markers() {
 
 #[test]
 fn from_process_routes_known_shells_to_shell_variant() {
-    let state = PaneState::from_process("bash", "user@host $");
+    let state = PaneState::from_process("bash", "user@host $", false);
     assert!(matches!(
         state,
         PaneState::Shell(ShellKind::Bash, ShellStatus::Idle)
@@ -258,14 +258,32 @@ fn from_process_routes_known_shells_to_shell_variant() {
 
 #[test]
 fn from_process_routes_claude_to_claude_variant() {
-    let state = PaneState::from_process("claude", "");
+    let state = PaneState::from_process("claude", "", false);
     assert!(matches!(state, PaneState::Claude(ClaudeStatus::Unknown)));
 }
 
 #[test]
 fn from_process_routes_unknown_process_to_other() {
-    let state = PaneState::from_process("vim", "");
+    let state = PaneState::from_process("vim", "", false);
     assert_eq!(state, PaneState::Other("vim".to_string()));
+}
+
+#[test]
+fn from_process_routes_tc_watcher_active() {
+    let state = PaneState::from_process("tc-watcher", "", false);
+    assert!(matches!(
+        state,
+        PaneState::TcWatcher(TcWatcherStatus::Active)
+    ));
+}
+
+#[test]
+fn from_process_routes_tc_watcher_paused_in_copy_mode() {
+    let state = PaneState::from_process("tc-watcher", "", true);
+    assert!(matches!(
+        state,
+        PaneState::TcWatcher(TcWatcherStatus::Paused)
+    ));
 }
 
 // ---------------------------------------------------------------------------
