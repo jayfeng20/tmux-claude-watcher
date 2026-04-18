@@ -20,12 +20,13 @@ struct PaneLine<'a> {
     window_name: &'a str,
     window_active: &'a str,
     session_name: &'a str,
+    session_attached: &'a str,
 }
 
 /// Builds a pipe-delimited line in `TmuxVar::iter()` order.
 fn make_pane_line(p: PaneLine<'_>) -> String {
     format!(
-        "{}|{}|{}|{}|{}|{}|{}|{}|{}",
+        "{}|{}|{}|{}|{}|{}|{}|{}|{}|{}",
         p.pane_id,
         p.pane_active,
         p.pane_current_command,
@@ -34,7 +35,8 @@ fn make_pane_line(p: PaneLine<'_>) -> String {
         p.window_index,
         p.window_name,
         p.window_active,
-        p.session_name
+        p.session_name,
+        p.session_attached
     )
 }
 
@@ -56,6 +58,7 @@ fn make_pane_info(
         },
         pane_active,
         window_active: true,
+        session_attached: true,
         pane_in_mode: false,
         current_cmd: "bash".to_string(),
         state,
@@ -82,6 +85,7 @@ fn parse_raw_pane_valid() {
         window_name: "editor",
         window_active: "1",
         session_name: "work",
+        session_attached: "1",
     });
     let raw = mgr
         .parse_pane_info(&line)
@@ -111,6 +115,7 @@ fn parse_raw_pane_inactive() {
         window_name: "term",
         window_active: "1",
         session_name: "main",
+        session_attached: "1",
     });
     let raw = mgr.parse_pane_info(&line).expect("should parse");
     assert!(!raw.pane_active);
@@ -130,6 +135,7 @@ fn parse_raw_pane_copy_mode() {
         window_name: "logs",
         window_active: "1",
         session_name: "sys",
+        session_attached: "1",
     });
     let raw = mgr.parse_pane_info(&line).expect("should parse");
     assert!(raw.pane_in_mode);
@@ -149,6 +155,7 @@ fn parse_raw_pane_id_without_percent_prefix() {
         window_name: "term",
         window_active: "1",
         session_name: "dev",
+        session_attached: "1",
     });
     let raw = mgr
         .parse_pane_info(&line)
@@ -169,6 +176,7 @@ fn parse_raw_pane_non_numeric_window_index_errors() {
         window_name: "win",
         window_active: "1",
         session_name: "sess",
+        session_attached: "1",
     });
     assert!(mgr.parse_pane_info(&line).is_err());
 }
@@ -250,7 +258,7 @@ fn merge_panes_changed_state_resets_status_changed_at() {
         "work",
         1,
         false,
-        PaneState::Shell(ShellKind::Bash, ShellStatus::Processing), // state changed
+        PaneState::Shell(ShellKind::Bash, ShellStatus::Idle), // state changed
         None,
         None,
     )]);
@@ -272,6 +280,7 @@ fn parse_pane_last_active_nonzero_becomes_some_systemtime() {
         window_name: "term",
         window_active: "1",
         session_name: "main",
+        session_attached: "1",
     });
     let raw = mgr.parse_pane_info(&line).expect("should parse");
     assert_eq!(raw.pane_last_active_secs, 1700000000);
@@ -290,6 +299,7 @@ fn parse_pane_last_active_zero_stays_zero() {
         window_name: "term",
         window_active: "1",
         session_name: "main",
+        session_attached: "1",
     });
     let raw = mgr.parse_pane_info(&line).expect("should parse");
     assert_eq!(raw.pane_last_active_secs, 0);

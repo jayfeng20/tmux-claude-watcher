@@ -27,6 +27,7 @@ enum TmuxVar {
     WindowName,
     WindowActive,
     SessionName,
+    SessionAttached,
 }
 
 /// Parsed tmux metadata for one pane, before classification.
@@ -35,6 +36,8 @@ struct RawPane {
     id: PaneId,
     pane_active: bool,
     window_active: bool,
+    /// Number of terminal clients attached to this pane's session; 0 means no one is viewing it.
+    session_attached: bool,
     pane_in_mode: bool,
     current_cmd: String,
     /// Unix timestamp (seconds) from `#{pane_last_active}`; 0 means never active.
@@ -99,6 +102,7 @@ impl PaneManager {
                     id: raw.id,
                     pane_active: raw.pane_active,
                     window_active: raw.window_active,
+                    session_attached: raw.session_attached,
                     pane_in_mode: raw.pane_in_mode,
                     current_cmd: raw.current_cmd,
                     last_updated: SystemTime::now(),
@@ -174,6 +178,7 @@ impl PaneManager {
             },
             pane_active: get(&TmuxVar::PaneActive)?.parse::<u32>()? != 0,
             window_active: get(&TmuxVar::WindowActive)?.parse::<u32>()? != 0,
+            session_attached: get(&TmuxVar::SessionAttached)?.parse::<u32>().unwrap_or(0) != 0,
             pane_in_mode: get(&TmuxVar::PaneInMode)?.parse::<u32>()? != 0,
             current_cmd: get(&TmuxVar::PaneCurrentCommand)?.to_string(),
             pane_last_active_secs: get(&TmuxVar::PaneLastActive)?.parse::<u64>().unwrap_or(0),

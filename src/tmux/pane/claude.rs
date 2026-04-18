@@ -3,14 +3,24 @@ use ratatui::style::Color;
 
 const SPINNERS: &[char] = &['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
 
+/// Bullet symbols Claude Code prefixes tool/status lines with while actively working.
+const WORKING_INDICATORS: &[char] = &['✢', '✶', '✻', '✳', '·'];
+
 /// What a Claude pane is currently doing.
 #[derive(Debug, Clone, PartialEq)]
 pub enum ClaudeStatus {
-    AwaitingInput,      // input box visible — waiting for next message
-    AwaitingPermission, // tool permission prompt — needs user approval to proceed
-    Thinking,           // extended reasoning in progress ("esc to interrupt" + thinking indicators)
-    Executing, // tool active ("esc to interrupt" present — generating, running tools, etc.)
-    Unknown,   // state could not be determined from visible content
+    /// Input box visible and Claude is asking a question (? found just above the text box).
+    AwaitingInput,
+    /// Input box visible, task just completed — Claude is not asking anything.
+    Done,
+    /// Tool permission prompt — needs user approval to proceed.
+    AwaitingPermission,
+    /// Extended reasoning in progress.
+    Thinking,
+    /// Generating, running tools, etc.
+    Executing,
+    /// State could not be determined from visible content.
+    Unknown,
 }
 
 impl ClaudeStatus {
@@ -31,17 +41,33 @@ impl ClaudeStatus {
         if Self::is_permission_prompt(content) {
             return ClaudeStatus::AwaitingPermission;
         }
-        // Normal chat input box: ────/❯ or ╭─ visible in the last few lines.
+        // Input box visible: distinguish a question (? above the box) from task completion.
         if Self::is_input_box(content) {
-            return ClaudeStatus::AwaitingInput;
+            return if Self::is_asking_question(content) {
+                ClaudeStatus::AwaitingInput
+            } else {
+                ClaudeStatus::Done
+            };
         }
         ClaudeStatus::Unknown
     }
 
     fn is_working(content: &str) -> bool {
-        super::last_nonempty_line(content)
-            .to_lowercase()
-            .contains("esc to interrupt")
+        // One of WORKING_INDICATORS starts a tool/status line in positions 4–7 from the bottom
+        // AND the line contains "ing…" — distinguishes active work (e.g. "✻ Processing…")
+        // from a completion summary that also uses WORKING_INDICATORS (e.g. "✻ Churned for 43s").
+        content
+            .lines()
+            .filter(|l| !l.trim().is_empty())
+            .rev()
+            .skip(3)
+            .take(4)
+            .any(|l| {
+                l.chars()
+                    .next()
+                    .is_some_and(|c| WORKING_INDICATORS.contains(&c))
+                    && l.contains("ing…")
+            })
     }
 
     fn has_thinking_indicators(content: &str) -> bool {
@@ -59,25 +85,56 @@ impl ClaudeStatus {
         last.contains("Esc to cancel") || last.contains("Tab to amend")
     }
 
+    fn is_asking_question(content: &str) -> bool {
+        // Check only the content strictly above the input box — not the box itself or
+        // anything the user may have typed inside it, which could contain '?'.
+        Self::lines_above_input_box(content)
+            .map(|lines| lines.iter().rev().take(4).any(|l| l.contains('?')))
+            .unwrap_or(false)
+    }
+
     fn is_input_box(content: &str) -> bool {
-        // The input box is bounded at the bottom by a ─ separator line.
-        // capture-pane pads to terminal height with blank lines, so skip those first,
-        // then check whether either of the last 2 non-empty lines is the separator.
-        let last_two: Vec<&str> = content
-            .lines()
-            .rev()
-            .filter(|l| !l.trim().is_empty())
-            .take(2)
-            .collect();
-        last_two.iter().any(|l| l.contains('─'))
+        Self::lines_above_input_box(content).is_some()
+    }
+
+    /// Returns the non-empty lines that appear above the input box, or `None` if no
+    /// input box is found.
+    ///
+    /// The input box is bounded top and bottom by a separator line containing `"───"`
+    /// (three or more `─` chars). Using a minimum run of three avoids matching a
+    /// stray single `─` that might appear in conversation content.
+    ///
+    /// By locating both separator lines first, callers avoid inspecting text the user
+    /// typed inside the box — which may be arbitrarily long and contain characters
+    /// that would otherwise cause false positives (e.g. `?` in `is_asking_question`).
+    ///
+    /// Only the bottom 8 non-empty lines are scanned for separators to avoid matching
+    /// a separator-like line deep in the conversation history.
+    fn lines_above_input_box<'a>(content: &'a str) -> Option<Vec<&'a str>> {
+        let non_empty: Vec<&'a str> = content.lines().filter(|l| !l.trim().is_empty()).collect();
+
+        let mut separators_seen = 0;
+        let mut above_idx = None;
+        for (i, line) in non_empty.iter().enumerate().rev().take(8) {
+            if line.contains("───") {
+                separators_seen += 1;
+                if separators_seen == 2 {
+                    above_idx = Some(i);
+                    break;
+                }
+            }
+        }
+
+        above_idx.map(|idx| non_empty[..idx].to_vec())
     }
 
     pub(super) fn display(&self) -> (&'static str, Color) {
         match self {
-            ClaudeStatus::AwaitingInput => (">_", theme::GREEN),
-            ClaudeStatus::AwaitingPermission => ("!", theme::SAPPHIRE),
-            ClaudeStatus::Thinking => ("◌", theme::YELLOW),
-            ClaudeStatus::Executing => ("▶", theme::TEAL),
+            ClaudeStatus::AwaitingInput => ("❯", theme::RED),
+            ClaudeStatus::Done => ("✓", theme::GREEN),
+            ClaudeStatus::AwaitingPermission => ("!", theme::RED),
+            ClaudeStatus::Thinking => ("◌", theme::PEACH),
+            ClaudeStatus::Executing => ("◑", theme::YELLOW),
             ClaudeStatus::Unknown => ("?", theme::OVERLAY0),
         }
     }

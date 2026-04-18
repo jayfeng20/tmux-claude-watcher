@@ -41,36 +41,36 @@ fn shell_kind_returns_none_for_unknown_process() {
 // ---------------------------------------------------------------------------
 
 #[test]
-fn shell_status_awaiting_input_on_dollar_prompt() {
+fn shell_status_idle_on_dollar_prompt() {
     assert_eq!(
         ShellStatus::from_pane_content("user@host ~/project $"),
-        ShellStatus::AwaitingInput
+        ShellStatus::Idle
     );
 }
 
 #[test]
-fn shell_status_awaiting_input_on_percent_prompt() {
+fn shell_status_idle_on_percent_prompt() {
     assert_eq!(
         ShellStatus::from_pane_content("user@host ~/project %"),
-        ShellStatus::AwaitingInput
+        ShellStatus::Idle
     );
 }
 
 #[test]
-fn shell_status_awaiting_input_on_hash_prompt() {
+fn shell_status_idle_on_hash_prompt() {
     // Root shell prompt
     assert_eq!(
         ShellStatus::from_pane_content("root@host ~#"),
-        ShellStatus::AwaitingInput
+        ShellStatus::Idle
     );
 }
 
 #[test]
-fn shell_status_processing_when_no_prompt_visible() {
+fn shell_status_awaiting_input_when_no_prompt_visible() {
     let content = "Running cargo build...\n   Compiling my-crate v0.1.0";
     assert_eq!(
         ShellStatus::from_pane_content(content),
-        ShellStatus::Processing
+        ShellStatus::AwaitingInput
     );
 }
 
@@ -91,9 +91,15 @@ fn shell_status_error_on_zsh_prefix() {
 }
 
 #[test]
-fn shell_status_idle_on_empty_content() {
-    assert_eq!(ShellStatus::from_pane_content(""), ShellStatus::Idle);
-    assert_eq!(ShellStatus::from_pane_content("   \n  "), ShellStatus::Idle);
+fn shell_status_awaiting_input_on_empty_content() {
+    assert_eq!(
+        ShellStatus::from_pane_content(""),
+        ShellStatus::AwaitingInput
+    );
+    assert_eq!(
+        ShellStatus::from_pane_content("   \n  "),
+        ShellStatus::AwaitingInput
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -116,8 +122,8 @@ fn claude_status_unknown_on_error_like_text() {
 
 #[test]
 fn claude_status_thinking_on_esc_interrupt_with_thinking_progress() {
-    // Reflects real Claude output: "· <desc> (thinking)" progress line + "esc to interrupt"
-    let content = "· Sock-hopping… (thinking)\n\n─────\n❯ \n─────\n  esc to interrupt";
+    // Reflects real Claude output: "· <desc> (thinking)" progress line + working indicator with ing…
+    let content = "· Sock-hopping… (thinking)\n· Processing…\n  line2\n  line3\n  esc to interrupt";
     assert_eq!(
         ClaudeStatus::from_pane_content(content),
         ClaudeStatus::Thinking
@@ -126,8 +132,8 @@ fn claude_status_thinking_on_esc_interrupt_with_thinking_progress() {
 
 #[test]
 fn claude_status_thinking_on_esc_interrupt_with_spinner() {
-    // Spinner char on the last non-empty line + "esc to interrupt"
-    let content = "⠙ Processing\n\n  esc to interrupt";
+    // Spinner present + WORKING_INDICATOR with ing… at position 4 from bottom
+    let content = "⠙ Processing\n· Running…\n  line2\n  line3\n  esc to interrupt";
     assert_eq!(
         ClaudeStatus::from_pane_content(content),
         ClaudeStatus::Thinking
@@ -136,8 +142,8 @@ fn claude_status_thinking_on_esc_interrupt_with_spinner() {
 
 #[test]
 fn claude_status_executing_on_esc_interrupt_without_thinking_indicators() {
-    // Tool running (e.g. Bash), no thinking block visible
-    let content = "⏺ Bash(cargo build 2>&1)\n  Compiling...\n\n  esc to interrupt";
+    // Tool running: WORKING_INDICATOR + ing… at position 4 from bottom, no thinking indicators
+    let content = "· Executing…\n  Compiling...\n  second line\n  esc to interrupt";
     assert_eq!(
         ClaudeStatus::from_pane_content(content),
         ClaudeStatus::Executing
@@ -155,7 +161,7 @@ fn claude_status_awaiting_permission_on_permission_prompt() {
 
 #[test]
 fn claude_status_awaiting_input_on_box_drawing_input() {
-    let content = "Here is the answer.\n\n╭─────────────╮\n│ > type here │\n╰─────────────╯";
+    let content = "Should I proceed?\n\n╭─────────────╮\n│ > type here │\n╰─────────────╯";
     assert_eq!(
         ClaudeStatus::from_pane_content(content),
         ClaudeStatus::AwaitingInput
@@ -164,20 +170,28 @@ fn claude_status_awaiting_input_on_box_drawing_input() {
 
 #[test]
 fn claude_status_awaiting_input_on_chevron_prompt() {
-    // Current Claude Code input format: ────/❯ separators, no ╭─ box drawing.
-    // "esc to interrupt" is absent so ❯ safely indicates the input prompt.
-    let content = "Some response text.\n\n────────────────────────────────────────\n❯ \n────────────────────────────────────────\n  ? for shortcuts";
+    // Current Claude Code input format: ────/❯ separators, ? present above the text box.
+    let content = "Would you like me to continue?\n\n────────────────────────────────────────\n❯ \n────────────────────────────────────────";
     assert_eq!(
         ClaudeStatus::from_pane_content(content),
         ClaudeStatus::AwaitingInput
     );
 }
 
+#[test]
+fn claude_status_done_when_input_box_visible_without_question() {
+    // Task completed, input box shown, but no ? above it — Done, not AwaitingInput.
+    let content = "✻ Churned for 43s\n\n────────────────────────────────────────\n❯ \n────────────────────────────────────────";
+    assert_eq!(ClaudeStatus::from_pane_content(content), ClaudeStatus::Done);
+}
+
 // ❯ alone (without ╭ or permission prompt markers) should NOT trigger AwaitingInput —
 // it also appears in the input area while Claude is actively working.
 #[test]
 fn claude_status_not_awaiting_when_only_chevron_visible_while_working() {
-    let content = "❯ user message\n\n─────\n❯ \n─────\n  esc to interrupt";
+    // User has typed in the input box; ─ separators are present but WORKING_INDICATOR with ing…
+    // is deeper, so is_working fires first and prevents a false AwaitingInput classification.
+    let content = "❯ user message\n· Running…\n─────\n❯ \n─────\n  esc to interrupt";
     assert_ne!(
         ClaudeStatus::from_pane_content(content),
         ClaudeStatus::AwaitingInput
@@ -206,7 +220,7 @@ fn from_process_routes_known_shells_to_shell_variant() {
     let state = PaneState::from_process("bash", "user@host $");
     assert!(matches!(
         state,
-        PaneState::Shell(ShellKind::Bash, ShellStatus::AwaitingInput)
+        PaneState::Shell(ShellKind::Bash, ShellStatus::Idle)
     ));
 }
 
@@ -245,15 +259,27 @@ fn type_cell_other_uses_process_name() {
 }
 
 #[test]
-fn state_cell_shell_awaiting_input_shows_prompt_icon() {
-    let line = PaneState::Shell(ShellKind::Zsh, ShellStatus::AwaitingInput).state_cell();
-    assert_eq!(line.to_string(), ">_");
+fn state_cell_shell_idle_shows_circle_icon() {
+    let line = PaneState::Shell(ShellKind::Zsh, ShellStatus::Idle).state_cell();
+    assert_eq!(line.to_string(), "○");
 }
 
 #[test]
-fn state_cell_claude_thinking_shows_circle_icon() {
+fn state_cell_shell_awaiting_input_shows_chevron_icon() {
+    let line = PaneState::Shell(ShellKind::Zsh, ShellStatus::AwaitingInput).state_cell();
+    assert_eq!(line.to_string(), "❯");
+}
+
+#[test]
+fn state_cell_claude_thinking_shows_open_circle_icon() {
     let line = PaneState::Claude(ClaudeStatus::Thinking).state_cell();
     assert_eq!(line.to_string(), "◌");
+}
+
+#[test]
+fn state_cell_claude_executing_shows_half_circle_icon() {
+    let line = PaneState::Claude(ClaudeStatus::Executing).state_cell();
+    assert_eq!(line.to_string(), "◑");
 }
 
 #[test]

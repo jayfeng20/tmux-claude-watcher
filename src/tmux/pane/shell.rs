@@ -28,10 +28,12 @@ impl ShellKind {
 /// What a shell pane is currently doing.
 #[derive(Debug, Clone, PartialEq)]
 pub enum ShellStatus {
-    AwaitingInput, // prompt visible — waiting for a command
-    Processing,    // command is running
-    Idle,          // no content / inactive
-    Error,         // error output visible
+    /// Shell prompt visible (%, $, #) — user can freely type a command.
+    Idle,
+    /// A running process is requesting input; format varies widely, so this is the fallback.
+    AwaitingInput,
+    /// Error output visible on the last line.
+    Error,
 }
 
 impl ShellStatus {
@@ -42,12 +44,9 @@ impl ShellStatus {
             return ShellStatus::Error;
         }
         if Self::has_prompt(content) {
-            return ShellStatus::AwaitingInput;
-        }
-        if content.trim().is_empty() {
             return ShellStatus::Idle;
         }
-        ShellStatus::Processing
+        ShellStatus::AwaitingInput
     }
 
     fn has_error(content: &str) -> bool {
@@ -69,9 +68,8 @@ impl ShellStatus {
 
     pub(super) fn display(&self) -> (&'static str, Color) {
         match self {
-            ShellStatus::AwaitingInput => (">_", theme::GREEN),
-            ShellStatus::Processing => ("▶", theme::TEAL),
-            ShellStatus::Idle => ("○", theme::OVERLAY0),
+            ShellStatus::Idle => ("○", theme::GREEN),
+            ShellStatus::AwaitingInput => ("❯", theme::RED),
             ShellStatus::Error => ("✗", theme::RED),
         }
     }

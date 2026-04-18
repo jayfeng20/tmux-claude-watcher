@@ -27,6 +27,7 @@ fn make_pane(session: &str, pane_id: u32, state: PaneState) -> PaneInfo {
         },
         pane_active: false,
         window_active: false,
+        session_attached: false,
         pane_in_mode: false,
         current_cmd: "bash".to_string(),
         state,
@@ -66,29 +67,29 @@ fn press(code: KeyCode) -> KeyEvent {
 // ---------------------------------------------------------------------------
 
 #[test]
-fn renders_shell_bash_awaiting_input() {
+fn renders_shell_bash_idle() {
     let mut app = App::new();
     app.update_panes(Arc::new(vec![make_pane(
         "work",
         1,
-        PaneState::Shell(ShellKind::Bash, ShellStatus::AwaitingInput),
+        PaneState::Shell(ShellKind::Bash, ShellStatus::Idle),
     )]));
     let output = render(&app);
     assert!(output.contains("bash"), "Type column should show 'bash'");
-    assert!(output.contains(">_"), "State column should show '>_' icon");
+    assert!(output.contains('○'), "State column should show '○' icon"); // green for idle
 }
 
 #[test]
-fn renders_shell_zsh_processing() {
+fn renders_shell_zsh_awaiting_input() {
     let mut app = App::new();
     app.update_panes(Arc::new(vec![make_pane(
         "work",
         1,
-        PaneState::Shell(ShellKind::Zsh, ShellStatus::Processing),
+        PaneState::Shell(ShellKind::Zsh, ShellStatus::AwaitingInput),
     )]));
     let output = render(&app);
     assert!(output.contains("zsh"), "Type column should show 'zsh'");
-    assert!(output.contains('▶'), "State column should show '▶' icon");
+    assert!(output.contains('❯'), "State column should show '❯' icon");
 }
 
 #[test]
@@ -133,7 +134,20 @@ fn renders_claude_executing() {
         output.contains("claude"),
         "Type column should show 'claude'"
     );
-    assert!(output.contains('▶'), "State column should show '▶' icon");
+    assert!(output.contains('◑'), "State column should show '◑' icon");
+}
+
+#[test]
+fn renders_claude_done() {
+    let mut app = App::new();
+    app.update_panes(Arc::new(vec![make_pane(
+        "work",
+        1,
+        PaneState::Claude(ClaudeStatus::Done),
+    )]));
+    let output = render(&app);
+    assert!(output.contains("claude"));
+    assert!(output.contains('✓'), "State column should show '✓' icon");
 }
 
 #[test]
@@ -149,7 +163,7 @@ fn renders_claude_awaiting_input() {
         output.contains("claude"),
         "Type column should show 'claude'"
     );
-    assert!(output.contains(">_"), "State column should show '>_' icon");
+    assert!(output.contains('❯'), "State column should show '❯' icon");
 }
 
 #[test]
@@ -196,18 +210,18 @@ fn renders_multiple_panes() {
         make_pane(
             "main",
             1,
-            PaneState::Shell(ShellKind::Bash, ShellStatus::AwaitingInput),
+            PaneState::Shell(ShellKind::Bash, ShellStatus::Idle),
         ),
         make_pane("main", 2, PaneState::Claude(ClaudeStatus::Executing)),
         make_pane(
             "work",
             3,
-            PaneState::Shell(ShellKind::Zsh, ShellStatus::Processing),
+            PaneState::Shell(ShellKind::Zsh, ShellStatus::AwaitingInput),
         ),
     ]));
     let output = render(&app);
-    assert!(output.contains("bash") && output.contains(">_"));
-    assert!(output.contains("claude") && output.contains('▶'));
+    assert!(output.contains("bash") && output.contains('○'));
+    assert!(output.contains("claude") && output.contains('◑'));
     assert!(output.contains("zsh"));
 }
 

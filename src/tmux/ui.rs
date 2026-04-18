@@ -124,7 +124,11 @@ impl App {
                 } else {
                     Style::default()
                 };
-                let is_active = pane.pane_active && pane.window_active;
+                // A pane is truly focused only when all three tmux flags align:
+                // session_attached (a terminal is viewing this session),
+                // window_active (this is the front window in that session), and
+                // pane_active (this is the selected pane within that window).
+                let is_active = pane.session_attached && pane.window_active && pane.pane_active;
                 let (active_label, active_color) = if is_active {
                     ("yes", theme::GREEN)
                 } else {
@@ -174,7 +178,7 @@ impl App {
 }
 
 fn render_help(frame: &mut Frame) {
-    let area = centered_rect(38, 20, frame.area());
+    let area = centered_rect(44, 20, frame.area());
     frame.render_widget(Clear, area);
 
     let lines = vec![
@@ -183,23 +187,27 @@ fn render_help(frame: &mut Frame) {
             Style::default().add_modifier(Modifier::BOLD),
         )),
         Line::from(vec![
-            Span::styled("◌ ", Style::default().fg(theme::YELLOW)),
+            Span::styled("◌ ", Style::default().fg(theme::PEACH)),
             Span::raw(" Thinking        (claude)"),
         ]),
         Line::from(vec![
-            Span::styled("▶ ", Style::default().fg(theme::TEAL)),
-            Span::raw(" Executing"),
+            Span::styled("◑ ", Style::default().fg(theme::YELLOW)),
+            Span::raw(" Executing       (claude)"),
         ]),
         Line::from(vec![
-            Span::styled(">_", Style::default().fg(theme::GREEN)),
-            Span::raw("  Awaiting input"),
+            Span::styled("❯ ", Style::default().fg(theme::RED)),
+            Span::raw(" Awaiting input"),
         ]),
         Line::from(vec![
-            Span::styled("! ", Style::default().fg(theme::SAPPHIRE)),
+            Span::styled("! ", Style::default().fg(theme::RED)),
             Span::raw(" Awaiting permission (claude)"),
         ]),
         Line::from(vec![
-            Span::styled("○ ", Style::default().fg(theme::OVERLAY0)),
+            Span::styled("✓ ", Style::default().fg(theme::GREEN)),
+            Span::raw(" Done             (claude)"),
+        ]),
+        Line::from(vec![
+            Span::styled("○ ", Style::default().fg(theme::GREEN)),
             Span::raw(" Idle            (shell)"),
         ]),
         Line::from(vec![
@@ -219,7 +227,7 @@ fn render_help(frame: &mut Frame) {
         Line::raw("Type    process (zsh, claude, …)"),
         Line::raw("State   activity icon"),
         Line::raw("Active  focused pane in window"),
-        Line::raw("Last    time since state changed"),
+        Line::raw("Last Updated  time since state changed"),
         Line::raw(""),
         Line::from(Span::styled(
             "? or Esc to close",

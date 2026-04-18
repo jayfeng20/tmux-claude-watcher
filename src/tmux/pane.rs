@@ -16,13 +16,21 @@ mod tests;
 #[derive(Debug, Clone)]
 pub struct PaneInfo {
     pub id: PaneId,
-    pub pane_active: bool, // whether this is the active pane within its window
-    pub window_active: bool, // whether this pane's window is the active window in its session
-    pub pane_in_mode: bool, // whether in copy_mode
+    /// This pane is the selected pane within its window (receives input if the window is visible).
+    pub pane_active: bool,
+    /// This pane's window is the active window in its session (front tab).
+    pub window_active: bool,
+    /// At least one terminal client is attached to this pane's session (someone is looking at it).
+    ///
+    /// All three flags must be true for a pane to be truly focused — receiving keyboard input
+    /// right now. A pane can have `pane_active && window_active` while `session_attached` is
+    /// false when the session exists in the background with no terminal attached to it.
+    pub session_attached: bool,
+    pub pane_in_mode: bool,  // whether in copy_mode
     pub current_cmd: String, // foreground process name reported by tmux
     pub state: PaneState,
     pub last_updated: SystemTime,
-    pub last_focused_at: Option<SystemTime>, // when pane became focused (window_active && pane_active); None if never
+    pub last_focused_at: Option<SystemTime>, // when pane became focused; None if never
     pub status_changed_at: Option<SystemTime>, // when PaneState last changed; None until first merge
 }
 
