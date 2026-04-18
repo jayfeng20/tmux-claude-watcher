@@ -111,7 +111,7 @@ impl App {
         let [table_area, footer_area] =
             Layout::vertical([Constraint::Min(0), Constraint::Length(1)]).areas(frame.area());
 
-        let header = Row::new(["ID", "State", "Last Visited", "Last Updated"])
+        let header = Row::new(["ID", "Type", "State", "Active", "Last Updated"])
             .style(Style::default().add_modifier(Modifier::BOLD));
 
         let rows: Vec<Row> = self
@@ -119,19 +119,25 @@ impl App {
             .iter()
             .enumerate()
             .map(|(i, pane)| {
-                let (label, color) = pane.state.display();
                 let style = if i == self.selected {
                     Style::default().bg(theme::SURFACE1)
                 } else {
                     Style::default()
+                };
+                let is_active = pane.pane_active && pane.window_active;
+                let (active_label, active_color) = if is_active {
+                    ("yes", theme::GREEN)
+                } else {
+                    ("no", theme::OVERLAY0)
                 };
                 Row::new(vec![
                     Cell::from(format!(
                         "{}:{}.{}",
                         pane.id.session_name, pane.id.window_index, pane.id.pane_id
                     )),
-                    Cell::from(label).style(Style::default().fg(color)),
-                    Cell::from(format_ago(pane.last_focused_at)),
+                    Cell::from(pane.state.type_cell()),
+                    Cell::from(pane.state.state_cell()),
+                    Cell::from(active_label).style(Style::default().fg(active_color)),
                     Cell::from(format_ago(pane.status_changed_at)),
                 ])
                 .style(style)
@@ -141,10 +147,11 @@ impl App {
         let table = Table::new(
             rows,
             [
-                Constraint::Min(0),
-                Constraint::Length(14),
-                Constraint::Length(13),
-                Constraint::Length(13),
+                Constraint::Length(20), // session:window.pane — e.g. "main:0.3"
+                Constraint::Length(10), // process name — e.g. "claude", "zsh"
+                Constraint::Length(6),  // state icon — e.g. ">_", "◉", "◌"
+                Constraint::Length(8),  // active yes/no
+                Constraint::Length(13), // last updated — e.g. "42s ago"
             ],
         )
         .header(header)
@@ -172,51 +179,47 @@ fn render_help(frame: &mut Frame) {
 
     let lines = vec![
         Line::from(Span::styled(
-            "Icons",
+            "State icons",
             Style::default().add_modifier(Modifier::BOLD),
         )),
         Line::from(vec![
-            Span::styled(">_", Style::default().fg(Color::Gray)),
+            Span::styled("◌ ", Style::default().fg(theme::YELLOW)),
+            Span::raw(" Thinking        (claude)"),
+        ]),
+        Line::from(vec![
+            Span::styled("▶ ", Style::default().fg(theme::TEAL)),
+            Span::raw(" Executing"),
+        ]),
+        Line::from(vec![
+            Span::styled(">_", Style::default().fg(theme::GREEN)),
             Span::raw("  Awaiting input"),
         ]),
         Line::from(vec![
-            Span::styled("◉ ", Style::default().fg(Color::LightYellow)),
-            Span::raw(" Processing / Generating"),
+            Span::styled("! ", Style::default().fg(theme::SAPPHIRE)),
+            Span::raw(" Awaiting permission (claude)"),
         ]),
         Line::from(vec![
-            Span::styled("◌ ", Style::default().fg(Color::LightCyan)),
-            Span::raw(" Thinking"),
+            Span::styled("○ ", Style::default().fg(theme::OVERLAY0)),
+            Span::raw(" Idle            (shell)"),
         ]),
         Line::from(vec![
-            Span::styled("⚙ ", Style::default().fg(Color::LightYellow)),
-            Span::raw(" Executing tool"),
+            Span::styled("✗ ", Style::default().fg(theme::RED)),
+            Span::raw(" Error           (shell)"),
         ]),
         Line::from(vec![
-            Span::styled("○ ", Style::default().fg(Color::DarkGray)),
-            Span::raw(" Idle"),
-        ]),
-        Line::from(vec![
-            Span::styled("✗ ", Style::default().fg(Color::LightRed)),
-            Span::raw(" Error"),
-        ]),
-        Line::from(vec![
-            Span::styled("? ", Style::default().fg(Color::Gray)),
-            Span::raw(" Unknown process"),
+            Span::styled("? ", Style::default().fg(theme::OVERLAY0)),
+            Span::raw(" Unknown"),
         ]),
         Line::raw(""),
         Line::from(Span::styled(
             "Columns",
             Style::default().add_modifier(Modifier::BOLD),
         )),
-        Line::raw("ID  session:window.pane"),
-        Line::from(Span::styled(
-            "    e.g. main:0.3",
-            Style::default().fg(Color::DarkGray),
-        )),
-        Line::from(Span::styled(
-            "    target with: tmux switch-client -t main:0",
-            Style::default().fg(Color::DarkGray),
-        )),
+        Line::raw("ID      session:window.pane"),
+        Line::raw("Type    process (zsh, claude, …)"),
+        Line::raw("State   activity icon"),
+        Line::raw("Active  focused pane in window"),
+        Line::raw("Last    time since state changed"),
         Line::raw(""),
         Line::from(Span::styled(
             "? or Esc to close",

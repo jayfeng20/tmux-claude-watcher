@@ -62,6 +62,7 @@ fn press(code: KeyCode) -> KeyEvent {
 
 // ---------------------------------------------------------------------------
 // UI rendering — pane state labels
+// Type and State are separate columns, so we check each independently.
 // ---------------------------------------------------------------------------
 
 #[test]
@@ -72,7 +73,9 @@ fn renders_shell_bash_awaiting_input() {
         1,
         PaneState::Shell(ShellKind::Bash, ShellStatus::AwaitingInput),
     )]));
-    assert!(render(&app).contains(">_ bash"));
+    let output = render(&app);
+    assert!(output.contains("bash"), "Type column should show 'bash'");
+    assert!(output.contains(">_"), "State column should show '>_' icon");
 }
 
 #[test]
@@ -83,7 +86,9 @@ fn renders_shell_zsh_processing() {
         1,
         PaneState::Shell(ShellKind::Zsh, ShellStatus::Processing),
     )]));
-    assert!(render(&app).contains("◉ zsh"));
+    let output = render(&app);
+    assert!(output.contains("zsh"), "Type column should show 'zsh'");
+    assert!(output.contains('▶'), "State column should show '▶' icon");
 }
 
 #[test]
@@ -94,7 +99,9 @@ fn renders_shell_fish_error() {
         1,
         PaneState::Shell(ShellKind::Fish, ShellStatus::Error),
     )]));
-    assert!(render(&app).contains("✗ fish"));
+    let output = render(&app);
+    assert!(output.contains("fish"), "Type column should show 'fish'");
+    assert!(output.contains('✗'), "State column should show '✗' icon");
 }
 
 #[test]
@@ -105,7 +112,12 @@ fn renders_claude_thinking() {
         1,
         PaneState::Claude(ClaudeStatus::Thinking),
     )]));
-    assert!(render(&app).contains("◌ claude"));
+    let output = render(&app);
+    assert!(
+        output.contains("claude"),
+        "Type column should show 'claude'"
+    );
+    assert!(output.contains('◌'), "State column should show '◌' icon");
 }
 
 #[test]
@@ -116,7 +128,12 @@ fn renders_claude_executing() {
         1,
         PaneState::Claude(ClaudeStatus::Executing),
     )]));
-    assert!(render(&app).contains("⚙ claude"));
+    let output = render(&app);
+    assert!(
+        output.contains("claude"),
+        "Type column should show 'claude'"
+    );
+    assert!(output.contains('▶'), "State column should show '▶' icon");
 }
 
 #[test]
@@ -127,7 +144,12 @@ fn renders_claude_awaiting_input() {
         1,
         PaneState::Claude(ClaudeStatus::AwaitingInput),
     )]));
-    assert!(render(&app).contains(">_ claude"));
+    let output = render(&app);
+    assert!(
+        output.contains("claude"),
+        "Type column should show 'claude'"
+    );
+    assert!(output.contains(">_"), "State column should show '>_' icon");
 }
 
 #[test]
@@ -138,7 +160,9 @@ fn renders_other_process() {
         1,
         PaneState::Other("vim".to_string()),
     )]));
-    assert!(render(&app).contains("? vim"));
+    let output = render(&app);
+    assert!(output.contains("vim"), "Type column should show 'vim'");
+    assert!(output.contains('?'), "State column should show '?' icon");
 }
 
 #[test]
@@ -149,7 +173,7 @@ fn renders_never_for_unset_timing_fields() {
         1,
         PaneState::Shell(ShellKind::Bash, ShellStatus::AwaitingInput),
     )]));
-    // Both last_focused_at and status_changed_at are UNIX_EPOCH — should display "never".
+    // status_changed_at is None — should display "never".
     let output = render(&app);
     assert!(output.contains("never"));
 }
@@ -159,8 +183,10 @@ fn renders_table_header() {
     let app = App::new();
     let output = render(&app);
     assert!(output.contains("ID"));
+    assert!(output.contains("Type"));
     assert!(output.contains("State"));
-    assert!(output.contains("Last Visited"));
+    assert!(output.contains("Active"));
+    assert!(output.contains("Last Updated"));
 }
 
 #[test]
@@ -172,7 +198,7 @@ fn renders_multiple_panes() {
             1,
             PaneState::Shell(ShellKind::Bash, ShellStatus::AwaitingInput),
         ),
-        make_pane("main", 2, PaneState::Claude(ClaudeStatus::Generating)),
+        make_pane("main", 2, PaneState::Claude(ClaudeStatus::Executing)),
         make_pane(
             "work",
             3,
@@ -180,9 +206,9 @@ fn renders_multiple_panes() {
         ),
     ]));
     let output = render(&app);
-    assert!(output.contains(">_ bash"));
-    assert!(output.contains("◉ claude"));
-    assert!(output.contains("◉ zsh"));
+    assert!(output.contains("bash") && output.contains(">_"));
+    assert!(output.contains("claude") && output.contains('▶'));
+    assert!(output.contains("zsh"));
 }
 
 // ---------------------------------------------------------------------------

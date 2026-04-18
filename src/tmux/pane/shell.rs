@@ -69,8 +69,8 @@ impl ShellStatus {
 
     pub(super) fn display(&self) -> (&'static str, Color) {
         match self {
-            ShellStatus::AwaitingInput => (">_", theme::OVERLAY2),
-            ShellStatus::Processing => ("◉", theme::PEACH),
+            ShellStatus::AwaitingInput => (">_", theme::GREEN),
+            ShellStatus::Processing => ("▶", theme::TEAL),
             ShellStatus::Idle => ("○", theme::OVERLAY0),
             ShellStatus::Error => ("✗", theme::RED),
         }

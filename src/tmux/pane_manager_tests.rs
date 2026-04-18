@@ -10,29 +10,31 @@ fn make_manager() -> PaneManager {
     PaneManager::new()
 }
 
+struct PaneLine<'a> {
+    pane_id: &'a str,
+    pane_active: &'a str,
+    pane_current_command: &'a str,
+    pane_in_mode: &'a str,
+    pane_last_active: &'a str,
+    window_index: &'a str,
+    window_name: &'a str,
+    window_active: &'a str,
+    session_name: &'a str,
+}
+
 /// Builds a pipe-delimited line in `TmuxVar::iter()` order.
-fn make_pane_line(
-    pane_id: &str,
-    pane_active: &str,
-    pane_current_command: &str,
-    pane_in_mode: &str,
-    pane_last_active: &str,
-    window_index: &str,
-    window_name: &str,
-    window_active: &str,
-    session_name: &str,
-) -> String {
+fn make_pane_line(p: PaneLine<'_>) -> String {
     format!(
         "{}|{}|{}|{}|{}|{}|{}|{}|{}",
-        pane_id,
-        pane_active,
-        pane_current_command,
-        pane_in_mode,
-        pane_last_active,
-        window_index,
-        window_name,
-        window_active,
-        session_name
+        p.pane_id,
+        p.pane_active,
+        p.pane_current_command,
+        p.pane_in_mode,
+        p.pane_last_active,
+        p.window_index,
+        p.window_name,
+        p.window_active,
+        p.session_name
     )
 }
 
@@ -70,17 +72,17 @@ fn make_pane_info(
 #[test]
 fn parse_raw_pane_valid() {
     let mgr = make_manager();
-    let line = make_pane_line(
-        "%3",
-        "1",
-        "bash",
-        "0",
-        "1700000000",
-        "2",
-        "editor",
-        "1",
-        "work",
-    );
+    let line = make_pane_line(PaneLine {
+        pane_id: "%3",
+        pane_active: "1",
+        pane_current_command: "bash",
+        pane_in_mode: "0",
+        pane_last_active: "1700000000",
+        window_index: "2",
+        window_name: "editor",
+        window_active: "1",
+        session_name: "work",
+    });
     let raw = mgr
         .parse_pane_info(&line)
         .expect("should parse successfully");
@@ -99,7 +101,17 @@ fn parse_raw_pane_valid() {
 #[test]
 fn parse_raw_pane_inactive() {
     let mgr = make_manager();
-    let line = make_pane_line("%0", "0", "zsh", "0", "0", "0", "term", "1", "main");
+    let line = make_pane_line(PaneLine {
+        pane_id: "%0",
+        pane_active: "0",
+        pane_current_command: "zsh",
+        pane_in_mode: "0",
+        pane_last_active: "0",
+        window_index: "0",
+        window_name: "term",
+        window_active: "1",
+        session_name: "main",
+    });
     let raw = mgr.parse_pane_info(&line).expect("should parse");
     assert!(!raw.pane_active);
     assert_eq!(raw.id.pane_id, 0);
@@ -108,7 +120,17 @@ fn parse_raw_pane_inactive() {
 #[test]
 fn parse_raw_pane_copy_mode() {
     let mgr = make_manager();
-    let line = make_pane_line("%1", "1", "bash", "1", "0", "0", "logs", "1", "sys");
+    let line = make_pane_line(PaneLine {
+        pane_id: "%1",
+        pane_active: "1",
+        pane_current_command: "bash",
+        pane_in_mode: "1",
+        pane_last_active: "0",
+        window_index: "0",
+        window_name: "logs",
+        window_active: "1",
+        session_name: "sys",
+    });
     let raw = mgr.parse_pane_info(&line).expect("should parse");
     assert!(raw.pane_in_mode);
 }
@@ -117,7 +139,17 @@ fn parse_raw_pane_copy_mode() {
 #[test]
 fn parse_raw_pane_id_without_percent_prefix() {
     let mgr = make_manager();
-    let line = make_pane_line("5", "1", "fish", "0", "0", "1", "term", "1", "dev");
+    let line = make_pane_line(PaneLine {
+        pane_id: "5",
+        pane_active: "1",
+        pane_current_command: "fish",
+        pane_in_mode: "0",
+        pane_last_active: "0",
+        window_index: "1",
+        window_name: "term",
+        window_active: "1",
+        session_name: "dev",
+    });
     let raw = mgr
         .parse_pane_info(&line)
         .expect("bare pane_id should work");
@@ -127,17 +159,17 @@ fn parse_raw_pane_id_without_percent_prefix() {
 #[test]
 fn parse_raw_pane_non_numeric_window_index_errors() {
     let mgr = make_manager();
-    let line = make_pane_line(
-        "%0",
-        "1",
-        "bash",
-        "0",
-        "0",
-        "notanumber",
-        "win",
-        "1",
-        "sess",
-    );
+    let line = make_pane_line(PaneLine {
+        pane_id: "%0",
+        pane_active: "1",
+        pane_current_command: "bash",
+        pane_in_mode: "0",
+        pane_last_active: "0",
+        window_index: "notanumber",
+        window_name: "win",
+        window_active: "1",
+        session_name: "sess",
+    });
     assert!(mgr.parse_pane_info(&line).is_err());
 }
 
@@ -230,17 +262,17 @@ fn merge_panes_changed_state_resets_status_changed_at() {
 #[test]
 fn parse_pane_last_active_nonzero_becomes_some_systemtime() {
     let mgr = make_manager();
-    let line = make_pane_line(
-        "%0",
-        "1",
-        "bash",
-        "0",
-        "1700000000",
-        "0",
-        "term",
-        "1",
-        "main",
-    );
+    let line = make_pane_line(PaneLine {
+        pane_id: "%0",
+        pane_active: "1",
+        pane_current_command: "bash",
+        pane_in_mode: "0",
+        pane_last_active: "1700000000",
+        window_index: "0",
+        window_name: "term",
+        window_active: "1",
+        session_name: "main",
+    });
     let raw = mgr.parse_pane_info(&line).expect("should parse");
     assert_eq!(raw.pane_last_active_secs, 1700000000);
 }
@@ -248,7 +280,17 @@ fn parse_pane_last_active_nonzero_becomes_some_systemtime() {
 #[test]
 fn parse_pane_last_active_zero_stays_zero() {
     let mgr = make_manager();
-    let line = make_pane_line("%0", "1", "bash", "0", "0", "0", "term", "1", "main");
+    let line = make_pane_line(PaneLine {
+        pane_id: "%0",
+        pane_active: "1",
+        pane_current_command: "bash",
+        pane_in_mode: "0",
+        pane_last_active: "0",
+        window_index: "0",
+        window_name: "term",
+        window_active: "1",
+        session_name: "main",
+    });
     let raw = mgr.parse_pane_info(&line).expect("should parse");
     assert_eq!(raw.pane_last_active_secs, 0);
 }

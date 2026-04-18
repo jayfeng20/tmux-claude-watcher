@@ -1,5 +1,6 @@
 use crate::theme;
-use ratatui::style::Color;
+use ratatui::style::Style;
+use ratatui::text::{Line, Span};
 use std::time::SystemTime;
 
 mod claude;
@@ -35,13 +36,10 @@ pub struct PaneId {
 }
 
 impl PaneId {
-    /// Returns the tmux target string used to address this pane in tmux commands,
-    /// e.g. `tmux capture-pane -t "main:editor.3"`.
+    /// Returns the tmux target string used to address this pane in tmux commands.
+    /// Uses the `%N` pane ID format, which is unique across all sessions and unambiguous.
     pub fn target(&self) -> String {
-        format!(
-            "{}:{}.{}",
-            self.session_name, self.window_index, self.pane_id
-        )
+        format!("%{}", self.pane_id)
     }
 }
 
@@ -99,19 +97,34 @@ impl PaneState {
         PaneState::Other(cmd.to_string())
     }
 
-    /// Returns (display label, color) for the State column.
-    /// Label is composed as "{icon} {name}", e.g. ">_ bash", "◌ claude".
-    pub fn display(&self) -> (String, Color) {
+    /// Returns a styled [`Line`] for the Type column (the process name).
+    pub fn type_cell(&self) -> Line<'_> {
         match self {
-            PaneState::Shell(kind, status) => {
+            PaneState::Shell(kind, _) => Line::from(kind.as_ref()),
+            PaneState::Claude(_) => {
+                Line::from(Span::styled("claude", Style::default().fg(theme::PEACH)))
+            }
+            PaneState::Other(name) => Line::from(Span::styled(
+                name.as_str(),
+                Style::default().fg(theme::OVERLAY0),
+            )),
+        }
+    }
+
+    /// Returns a styled [`Line`] for the State column (icon only).
+    pub fn state_cell(&self) -> Line<'_> {
+        match self {
+            PaneState::Shell(_, status) => {
                 let (icon, color) = status.display();
-                (format!("{} {}", icon, kind.as_ref()), color)
+                Line::from(Span::styled(icon, Style::default().fg(color)))
             }
             PaneState::Claude(status) => {
                 let (icon, color) = status.display();
-                (format!("{} claude", icon), color)
+                Line::from(Span::styled(icon, Style::default().fg(color)))
             }
-            PaneState::Other(name) => (format!("? {}", name), theme::SUBTEXT0),
+            PaneState::Other(_) => {
+                Line::from(Span::styled("?", Style::default().fg(theme::SUBTEXT0)))
+            }
         }
     }
 }
