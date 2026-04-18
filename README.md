@@ -1,4 +1,4 @@
-# tmux-monitor
+# tmux-claude-watcher
 
 A terminal UI that gives you a live, color-coded overview of every active tmux pane — what process is running, what it is doing, and how long it has been in that state.
 
@@ -51,29 +51,43 @@ Built with special awareness of [Claude Code](https://claude.ai/code): panes run
 ## Installation
 
 ```bash
-git clone https://github.com/jayfeng20/tmux-monitor.git
-cd tmux-monitor
+git clone https://github.com/jayfeng20/tmux-claude-watcher.git
+cd tmux-claude-watcher
 cargo build --release
 ```
 
-The compiled binary will be at `target/release/tmux-monitor`.
+The compiled binary will be at `target/release/tmux-claude-watcher`.
 
 Optionally, copy it somewhere on your `$PATH`:
 
 ```bash
-cp target/release/tmux-monitor ~/.local/bin/
+cp target/release/tmux-claude-watcher ~/.local/bin/
 ```
 
 ---
 
 ## Usage
 
-Make sure at least one tmux session is running, then launch the monitor from inside (or outside) that session:
+The recommended setup is one tmux session for all your work, with `tc-watcher` running in a dedicated window so it stays visible without occupying a pane in your workspace:
 
 ```bash
-cargo run --release
-# or, after installing:
-tmux-monitor
+# Start your session (if you don't have one already)
+tmux new-session -s work
+
+# From inside the session, open a watcher window
+tmux new-window -n watcher
+tc-watcher
+```
+
+Switch between windows with `Ctrl-b <number>` or `Ctrl-b w` to pick from a list. The watcher polls in the background regardless of which window you are viewing.
+
+To script the whole setup:
+
+```bash
+tmux new-session -d -s work
+tmux new-window -t work -n watcher
+tmux send-keys -t work:watcher 'tc-watcher' Enter
+tmux attach -t work
 ```
 
 ### Setting up tmux sessions to monitor
@@ -129,16 +143,16 @@ tmux list-panes -a
 
 ### Logs
 
-Structured logs are written to `/tmp/pane-monitor.YYYY-MM-DD` (one file per day). To stream them while the monitor is running:
+Structured logs are written to `/tmp/tmux-claude-watcher.YYYY-MM-DD` (one file per day). To stream them while the monitor is running:
 
 ```bash
-tail -f /tmp/pane-monitor.$(date +%Y-%m-%d)
+tail -f /tmp/tmux-claude-watcher.$(date +%Y-%m-%d)
 ```
 
 To control log verbosity, set `RUST_LOG` before launching:
 
 ```bash
-RUST_LOG=debug tmux-monitor
+RUST_LOG=debug tmux-claude-watcher
 ```
 
 ---

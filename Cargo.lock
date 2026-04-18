@@ -1542,7 +1542,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "tmux-monitor"
+name = "tmux-claude-watcher"
 version = "0.1.0"
 dependencies = [
  "crossterm",
