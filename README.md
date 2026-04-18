@@ -4,6 +4,8 @@ A terminal UI that gives you a live, color-coded overview of every active tmux p
 
 Built with special awareness of [Claude Code](https://claude.ai/code): panes running `claude` are classified into fine-grained states (Thinking, Executing, Awaiting Input, Done) so you can glance at the monitor and know exactly where each agent is in its work cycle.
 
+![Panel](examples/ui.png)
+![Panel](examples/help.png)
 ---
 
 ## Features
@@ -44,6 +46,19 @@ Built with special awareness of [Claude Code](https://claude.ai/code): panes run
 |------|--------|--------|----------------------------------------------------------|
 | `○`  | green  | Active | Monitor is running and polling pane states               |
 | `⏸`  | yellow | Paused | Pane is in tmux copy/scroll mode — output is frozen      |
+
+---
+
+## Easy Setup using latest version
+
+- latest binary is `latest/tc-watcher`
+- easiest way to get started is to download the binary and then run
+``` bash
+cp target/release/tc-watcher ~/.local/bin/
+
+tc-watcher # should work now!
+```
+
 
 ---
 
