@@ -10,7 +10,7 @@ use std::collections::HashMap;
 use std::error::Error;
 use std::process::Command;
 use std::sync::Arc;
-use std::time::SystemTime;
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use strum::{AsRefStr, EnumIter, EnumString, IntoEnumIterator};
 
 /// Tmux format variables used to query pane information.
@@ -22,9 +22,12 @@ enum TmuxVar {
     PaneActive,
     PaneCurrentCommand,
     PaneInMode,
+    PaneLastActive,
     WindowIndex,
     WindowName,
+    WindowActive,
     SessionName,
+    SessionAttached,
 }
 
 /// Parsed tmux metadata for one pane, before classification.
@@ -32,8 +35,13 @@ enum TmuxVar {
 struct RawPane {
     id: PaneId,
     pane_active: bool,
+    window_active: bool,
+    /// Number of terminal clients attached to this pane's session; 0 means no one is viewing it.
+    session_attached: bool,
     pane_in_mode: bool,
     current_cmd: String,
+    /// Unix timestamp (seconds) from `#{pane_last_active}`; 0 means never active.
+    pane_last_active_secs: u64,
 }
 
 /// Manages the state of all active tmux panes.
@@ -85,15 +93,20 @@ impl PaneManager {
                     String::new()
                 });
                 let state = PaneState::from_process(&raw.current_cmd, &content);
+                let last_focused_at = match raw.pane_last_active_secs {
+                    0 => None,
+                    secs => Some(UNIX_EPOCH + Duration::from_secs(secs)),
+                };
                 PaneInfo {
                     state,
                     id: raw.id,
                     pane_active: raw.pane_active,
+                    window_active: raw.window_active,
+                    session_attached: raw.session_attached,
                     pane_in_mode: raw.pane_in_mode,
                     current_cmd: raw.current_cmd,
                     last_updated: SystemTime::now(),
-                    // fresh pane status is just a snapshot and has no history
-                    last_focused_at: None,
+                    last_focused_at,
                     status_changed_at: None,
                 }
             })
@@ -164,8 +177,11 @@ impl PaneManager {
                 pane_id: pane_id_num,
             },
             pane_active: get(&TmuxVar::PaneActive)?.parse::<u32>()? != 0,
+            window_active: get(&TmuxVar::WindowActive)?.parse::<u32>()? != 0,
+            session_attached: get(&TmuxVar::SessionAttached)?.parse::<u32>().unwrap_or(0) != 0,
             pane_in_mode: get(&TmuxVar::PaneInMode)?.parse::<u32>()? != 0,
             current_cmd: get(&TmuxVar::PaneCurrentCommand)?.to_string(),
+            pane_last_active_secs: get(&TmuxVar::PaneLastActive)?.parse::<u64>().unwrap_or(0),
         })
     }
 
@@ -191,18 +207,14 @@ impl PaneManager {
                     } else {
                         p.status_changed_at
                     };
-                    pane.last_focused_at = if !p.pane_active && pane.pane_active {
-                        tracing::debug!(pane_id = pane.id.pane_id, "pane focused");
-                        Some(SystemTime::now())
-                    } else {
-                        p.last_focused_at
-                    };
+                    // last_focused_at comes directly from #{pane_last_active} — no
+                    // transition inference needed, so carry the fresh value through.
                 }
                 // New pane — start its timers from now.
                 None => {
                     tracing::debug!(pane_id = pane.id.pane_id, cmd = %pane.current_cmd, "new pane discovered");
                     pane.status_changed_at = Some(SystemTime::now());
-                    pane.last_focused_at = None;
+                    // last_focused_at already set from #{pane_last_active} in refresh()
                 }
             }
         }

@@ -4,10 +4,6 @@
 //! and runs an event-driven [`ratatui`] loop on the main thread that redraws only
 //! when new pane data arrives or the user presses a key.
 
-use claude_pane_monitor::tmux::{
-    pane_manager::PaneManager,
-    ui::{App, AppAction},
-};
 use crossterm::event::KeyEventKind;
 use crossterm::{
     event::{Event, EventStream},
@@ -18,6 +14,10 @@ use futures::StreamExt;
 use ratatui::{Terminal, backend::CrosstermBackend};
 use std::sync::Arc;
 use std::time::Duration;
+use tmux_monitor::tmux::{
+    pane_manager::PaneManager,
+    ui::{App, AppAction},
+};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {

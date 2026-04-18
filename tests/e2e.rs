@@ -3,14 +3,14 @@
 //! Uses ratatui's [`TestBackend`] to render the UI into an in-memory buffer,
 //! so tests run without a real terminal or tmux session.
 
-use claude_pane_monitor::tmux::{
-    pane::{ClaudeStatus, PaneId, PaneInfo, PaneState, ShellKind, ShellStatus},
-    ui::{App, AppAction},
-};
 use crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyEventState, KeyModifiers};
 use ratatui::{Terminal, backend::TestBackend};
 use std::sync::Arc;
 use std::time::SystemTime;
+use tmux_monitor::tmux::{
+    pane::{ClaudeStatus, PaneId, PaneInfo, PaneState, ShellKind, ShellStatus},
+    ui::{App, AppAction},
+};
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -26,6 +26,8 @@ fn make_pane(session: &str, pane_id: u32, state: PaneState) -> PaneInfo {
             pane_id,
         },
         pane_active: false,
+        window_active: false,
+        session_attached: false,
         pane_in_mode: false,
         current_cmd: "bash".to_string(),
         state,
@@ -61,28 +63,33 @@ fn press(code: KeyCode) -> KeyEvent {
 
 // ---------------------------------------------------------------------------
 // UI rendering — pane state labels
+// Type and State are separate columns, so we check each independently.
 // ---------------------------------------------------------------------------
 
 #[test]
-fn renders_shell_bash_awaiting_input() {
+fn renders_shell_bash_idle() {
     let mut app = App::new();
     app.update_panes(Arc::new(vec![make_pane(
         "work",
         1,
-        PaneState::Shell(ShellKind::Bash, ShellStatus::AwaitingInput),
+        PaneState::Shell(ShellKind::Bash, ShellStatus::Idle),
     )]));
-    assert!(render(&app).contains(">_ bash"));
+    let output = render(&app);
+    assert!(output.contains("bash"), "Type column should show 'bash'");
+    assert!(output.contains('○'), "State column should show '○' icon"); // green for idle
 }
 
 #[test]
-fn renders_shell_zsh_processing() {
+fn renders_shell_zsh_awaiting_input() {
     let mut app = App::new();
     app.update_panes(Arc::new(vec![make_pane(
         "work",
         1,
-        PaneState::Shell(ShellKind::Zsh, ShellStatus::Processing),
+        PaneState::Shell(ShellKind::Zsh, ShellStatus::AwaitingInput),
     )]));
-    assert!(render(&app).contains("◉ zsh"));
+    let output = render(&app);
+    assert!(output.contains("zsh"), "Type column should show 'zsh'");
+    assert!(output.contains('❯'), "State column should show '❯' icon");
 }
 
 #[test]
@@ -93,7 +100,9 @@ fn renders_shell_fish_error() {
         1,
         PaneState::Shell(ShellKind::Fish, ShellStatus::Error),
     )]));
-    assert!(render(&app).contains("✗ fish"));
+    let output = render(&app);
+    assert!(output.contains("fish"), "Type column should show 'fish'");
+    assert!(output.contains('✗'), "State column should show '✗' icon");
 }
 
 #[test]
@@ -104,7 +113,12 @@ fn renders_claude_thinking() {
         1,
         PaneState::Claude(ClaudeStatus::Thinking),
     )]));
-    assert!(render(&app).contains("◌ claude"));
+    let output = render(&app);
+    assert!(
+        output.contains("claude"),
+        "Type column should show 'claude'"
+    );
+    assert!(output.contains('◌'), "State column should show '◌' icon");
 }
 
 #[test]
@@ -115,7 +129,25 @@ fn renders_claude_executing() {
         1,
         PaneState::Claude(ClaudeStatus::Executing),
     )]));
-    assert!(render(&app).contains("⚙ claude"));
+    let output = render(&app);
+    assert!(
+        output.contains("claude"),
+        "Type column should show 'claude'"
+    );
+    assert!(output.contains('◑'), "State column should show '◑' icon");
+}
+
+#[test]
+fn renders_claude_done() {
+    let mut app = App::new();
+    app.update_panes(Arc::new(vec![make_pane(
+        "work",
+        1,
+        PaneState::Claude(ClaudeStatus::Done),
+    )]));
+    let output = render(&app);
+    assert!(output.contains("claude"));
+    assert!(output.contains('✓'), "State column should show '✓' icon");
 }
 
 #[test]
@@ -126,7 +158,12 @@ fn renders_claude_awaiting_input() {
         1,
         PaneState::Claude(ClaudeStatus::AwaitingInput),
     )]));
-    assert!(render(&app).contains(">_ claude"));
+    let output = render(&app);
+    assert!(
+        output.contains("claude"),
+        "Type column should show 'claude'"
+    );
+    assert!(output.contains('❯'), "State column should show '❯' icon");
 }
 
 #[test]
@@ -137,7 +174,9 @@ fn renders_other_process() {
         1,
         PaneState::Other("vim".to_string()),
     )]));
-    assert!(render(&app).contains("? vim"));
+    let output = render(&app);
+    assert!(output.contains("vim"), "Type column should show 'vim'");
+    assert!(output.contains('?'), "State column should show '?' icon");
 }
 
 #[test]
@@ -148,7 +187,7 @@ fn renders_never_for_unset_timing_fields() {
         1,
         PaneState::Shell(ShellKind::Bash, ShellStatus::AwaitingInput),
     )]));
-    // Both last_focused_at and status_changed_at are UNIX_EPOCH — should display "never".
+    // status_changed_at is None — should display "never".
     let output = render(&app);
     assert!(output.contains("never"));
 }
@@ -157,9 +196,11 @@ fn renders_never_for_unset_timing_fields() {
 fn renders_table_header() {
     let app = App::new();
     let output = render(&app);
-    assert!(output.contains("Session:Win"));
+    assert!(output.contains("ID"));
+    assert!(output.contains("Type"));
     assert!(output.contains("State"));
-    assert!(output.contains("Last Focus"));
+    assert!(output.contains("Active"));
+    assert!(output.contains("Last Updated"));
 }
 
 #[test]
@@ -169,19 +210,19 @@ fn renders_multiple_panes() {
         make_pane(
             "main",
             1,
-            PaneState::Shell(ShellKind::Bash, ShellStatus::AwaitingInput),
+            PaneState::Shell(ShellKind::Bash, ShellStatus::Idle),
         ),
-        make_pane("main", 2, PaneState::Claude(ClaudeStatus::Generating)),
+        make_pane("main", 2, PaneState::Claude(ClaudeStatus::Executing)),
         make_pane(
             "work",
             3,
-            PaneState::Shell(ShellKind::Zsh, ShellStatus::Processing),
+            PaneState::Shell(ShellKind::Zsh, ShellStatus::AwaitingInput),
         ),
     ]));
     let output = render(&app);
-    assert!(output.contains(">_ bash"));
-    assert!(output.contains("◉ claude"));
-    assert!(output.contains("◉ zsh"));
+    assert!(output.contains("bash") && output.contains('○'));
+    assert!(output.contains("claude") && output.contains('◑'));
+    assert!(output.contains("zsh"));
 }
 
 // ---------------------------------------------------------------------------
@@ -231,7 +272,7 @@ fn j_key_moves_selection_down() {
     // After two j presses on 2 panes, selection wraps back to first.
     let output_after_wrap = render(&app);
     // First pane's session appears somewhere near top of table.
-    assert!(output_after_wrap.contains("s:win"));
+    assert!(output_after_wrap.contains("s:0."));
 }
 
 #[test]
@@ -254,7 +295,7 @@ fn k_key_on_first_row_does_not_underflow() {
     )]));
     // Pressing k at the top row should clamp — no panic, no wrap.
     app.handle_key(press(KeyCode::Char('k')));
-    assert!(render(&app).contains("s:win")); // still renders fine
+    assert!(render(&app).contains("s:0.")); // still renders fine
 }
 
 #[test]
@@ -291,5 +332,5 @@ fn update_panes_clamps_selection_when_list_shrinks() {
     )]));
 
     // Should still render without panic.
-    assert!(render(&app).contains("s:win"));
+    assert!(render(&app).contains("s:0."));
 }
