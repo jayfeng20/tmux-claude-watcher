@@ -14,7 +14,7 @@ use futures::StreamExt;
 use ratatui::{Terminal, backend::CrosstermBackend};
 use std::sync::Arc;
 use std::time::Duration;
-use tmux_monitor::tmux::{
+use tmux_claude_watcher::tmux::{
     pane_manager::PaneManager,
     ui::{App, AppAction},
 };
@@ -22,7 +22,7 @@ use tmux_monitor::tmux::{
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     // Log to a rolling daily file — we must not write to stdout while ratatui owns it.
-    let file_appender = tracing_appender::rolling::daily("/tmp", "pane-monitor.log");
+    let file_appender = tracing_appender::rolling::daily("/tmp", "tmux-claude-watcher.log");
     let (non_blocking, _guard) = tracing_appender::non_blocking(file_appender);
     tracing_subscriber::fmt().with_writer(non_blocking).init();
 

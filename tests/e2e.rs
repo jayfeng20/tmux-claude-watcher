@@ -7,7 +7,7 @@ use crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyEventState, KeyModifi
 use ratatui::{Terminal, backend::TestBackend};
 use std::sync::Arc;
 use std::time::SystemTime;
-use tmux_monitor::tmux::{
+use tmux_claude_watcher::tmux::{
     pane::{ClaudeStatus, PaneId, PaneInfo, PaneState, ShellKind, ShellStatus},
     ui::{App, AppAction},
 };
