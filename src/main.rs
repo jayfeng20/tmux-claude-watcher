@@ -23,8 +23,12 @@ use tmux_claude_watcher::tmux::{
 /// Exits with a clear message if not running inside a tmux session.
 fn require_tmux() {
     if std::env::var("TMUX").is_err() {
-        eprintln!("error: tc-watcher must be run inside a tmux session.");
-        eprintln!("example: tmux new-session -s <your-session-name>");
+        // ANSI true-color codes — safe to use before ratatui owns the terminal.
+        const RED: &str = "\x1b[38;2;243;139;168m";
+        const TEAL: &str = "\x1b[38;2;148;226;213m";
+        const RESET: &str = "\x1b[0m";
+        eprintln!("{RED}error{RESET}: tc-watcher must be run inside a tmux session.");
+        eprintln!("To create one: {TEAL}tmux new-session -s <your-session-name>{RESET}");
         std::process::exit(1);
     }
 }
