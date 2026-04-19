@@ -4,6 +4,14 @@ A terminal UI that gives you a live, color-coded overview of every active tmux p
 
 Built with special awareness of [Claude Code](https://claude.ai/code): panes running `claude` are classified into fine-grained states (Thinking, Executing, Awaiting Input, Done) so you can glance at the monitor and know exactly where each agent is in its work cycle.
 
+**Recommended workflow**
+
+Use `tc-watcher` as a "catalog" for all your tmux windows
+- Open a tmux session
+- Launch `tc-watcher`
+- Navigate to the pane (task) you would like to work on, press `Enter` to jump
+- Once you're done with the task, `prefix [ctrl+b] + L` or `prefix [ctrl+b] + n` to go back to the catalog and work on the next task
+
 ![Panel](examples/ui.png)
 ![Panel](examples/help.png)
 
