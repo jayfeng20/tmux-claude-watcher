@@ -15,7 +15,6 @@ struct PaneLine<'a> {
     pane_active: &'a str,
     pane_current_command: &'a str,
     pane_in_mode: &'a str,
-    pane_last_active: &'a str,
     window_index: &'a str,
     window_name: &'a str,
     window_active: &'a str,
@@ -26,12 +25,11 @@ struct PaneLine<'a> {
 /// Builds a pipe-delimited line in `TmuxVar::iter()` order.
 fn make_pane_line(p: PaneLine<'_>) -> String {
     format!(
-        "{}|{}|{}|{}|{}|{}|{}|{}|{}|{}",
+        "{}|{}|{}|{}|{}|{}|{}|{}|{}",
         p.pane_id,
         p.pane_active,
         p.pane_current_command,
         p.pane_in_mode,
-        p.pane_last_active,
         p.window_index,
         p.window_name,
         p.window_active,
@@ -80,7 +78,6 @@ fn parse_raw_pane_valid() {
         pane_active: "1",
         pane_current_command: "bash",
         pane_in_mode: "0",
-        pane_last_active: "1700000000",
         window_index: "2",
         window_name: "editor",
         window_active: "1",
@@ -99,7 +96,6 @@ fn parse_raw_pane_valid() {
     assert!(raw.window_active);
     assert!(!raw.pane_in_mode);
     assert_eq!(raw.current_cmd, "bash");
-    assert_eq!(raw.pane_last_active_secs, 1700000000);
 }
 
 #[test]
@@ -110,7 +106,6 @@ fn parse_raw_pane_inactive() {
         pane_active: "0",
         pane_current_command: "zsh",
         pane_in_mode: "0",
-        pane_last_active: "0",
         window_index: "0",
         window_name: "term",
         window_active: "1",
@@ -130,7 +125,6 @@ fn parse_raw_pane_copy_mode() {
         pane_active: "1",
         pane_current_command: "bash",
         pane_in_mode: "1",
-        pane_last_active: "0",
         window_index: "0",
         window_name: "logs",
         window_active: "1",
@@ -150,7 +144,6 @@ fn parse_raw_pane_id_without_percent_prefix() {
         pane_active: "1",
         pane_current_command: "fish",
         pane_in_mode: "0",
-        pane_last_active: "0",
         window_index: "1",
         window_name: "term",
         window_active: "1",
@@ -171,7 +164,6 @@ fn parse_raw_pane_non_numeric_window_index_errors() {
         pane_active: "1",
         pane_current_command: "bash",
         pane_in_mode: "0",
-        pane_last_active: "0",
         window_index: "notanumber",
         window_name: "win",
         window_active: "1",
@@ -268,67 +260,48 @@ fn merge_panes_changed_state_resets_status_changed_at() {
 }
 
 #[test]
-fn parse_pane_last_active_nonzero_becomes_some_systemtime() {
-    let mgr = make_manager();
-    let line = make_pane_line(PaneLine {
-        pane_id: "%0",
-        pane_active: "1",
-        pane_current_command: "bash",
-        pane_in_mode: "0",
-        pane_last_active: "1700000000",
-        window_index: "0",
-        window_name: "term",
-        window_active: "1",
-        session_name: "main",
-        session_attached: "1",
-    });
-    let raw = mgr.parse_pane_info(&line).expect("should parse");
-    assert_eq!(raw.pane_last_active_secs, 1700000000);
+fn merge_panes_records_focus_when_pane_becomes_active() {
+    let mut mgr = make_manager();
+    let state = PaneState::Shell(ShellKind::Bash, ShellStatus::Idle);
+
+    // Seed with an inactive pane that has never been focused.
+    mgr.active_panes = Arc::new(vec![make_pane_info(
+        "work",
+        1,
+        false,
+        state.clone(),
+        Some(SystemTime::now()),
+        None,
+    )]);
+
+    let before = SystemTime::now();
+    // Pane transitions to active — merge_panes must record the focus time.
+    mgr.merge_panes(vec![make_pane_info("work", 1, true, state, None, None)]);
+
+    assert!(
+        mgr.active_panes[0].last_focused_at >= Some(before),
+        "last_focused_at should be set when pane becomes active"
+    );
 }
 
 #[test]
-fn parse_pane_last_active_zero_stays_zero() {
-    let mgr = make_manager();
-    let line = make_pane_line(PaneLine {
-        pane_id: "%0",
-        pane_active: "1",
-        pane_current_command: "bash",
-        pane_in_mode: "0",
-        pane_last_active: "0",
-        window_index: "0",
-        window_name: "term",
-        window_active: "1",
-        session_name: "main",
-        session_attached: "1",
-    });
-    let raw = mgr.parse_pane_info(&line).expect("should parse");
-    assert_eq!(raw.pane_last_active_secs, 0);
-}
-
-#[test]
-fn merge_panes_last_focused_at_carried_from_fresh_pane() {
+fn merge_panes_carries_forward_last_focused_at_while_still_active() {
     let mut mgr = make_manager();
     let focus_time = SystemTime::now() - Duration::from_secs(3600);
-    let state = PaneState::Shell(ShellKind::Bash, ShellStatus::AwaitingInput);
+    let state = PaneState::Shell(ShellKind::Bash, ShellStatus::Idle);
 
+    // Seed with an already-active pane that was focused an hour ago.
     mgr.active_panes = Arc::new(vec![make_pane_info(
         "work",
         1,
         true,
         state.clone(),
         Some(SystemTime::now()),
-        None,
-    )]);
-
-    // Fresh pane carries a focus timestamp from #{pane_last_active} — merge must preserve it.
-    mgr.merge_panes(vec![make_pane_info(
-        "work",
-        1,
-        true,
-        state,
-        None,
         Some(focus_time),
     )]);
+
+    // Pane remains active — last_focused_at must not be reset.
+    mgr.merge_panes(vec![make_pane_info("work", 1, true, state, None, None)]);
 
     assert_eq!(mgr.active_panes[0].last_focused_at, Some(focus_time));
 }

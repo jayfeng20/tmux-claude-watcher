@@ -10,7 +10,7 @@ use std::collections::HashMap;
 use std::error::Error;
 use std::process::Command;
 use std::sync::Arc;
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::SystemTime;
 use strum::{AsRefStr, EnumIter, EnumString, IntoEnumIterator};
 
 /// Tmux format variables used to query pane information.
@@ -22,7 +22,6 @@ enum TmuxVar {
     PaneActive,
     PaneCurrentCommand,
     PaneInMode,
-    PaneLastActive,
     WindowIndex,
     WindowName,
     WindowActive,
@@ -40,8 +39,6 @@ struct RawPane {
     session_attached: bool,
     pane_in_mode: bool,
     current_cmd: String,
-    /// Unix timestamp (seconds) from `#{pane_last_active}`; 0 means never active.
-    pane_last_active_secs: u64,
 }
 
 /// Manages the state of all active tmux panes.
@@ -93,10 +90,6 @@ impl PaneManager {
                     String::new()
                 });
                 let state = PaneState::from_process(&raw.current_cmd, &content, raw.pane_in_mode);
-                let last_focused_at = match raw.pane_last_active_secs {
-                    0 => None,
-                    secs => Some(UNIX_EPOCH + Duration::from_secs(secs)),
-                };
                 PaneInfo {
                     state,
                     id: raw.id,
@@ -106,7 +99,7 @@ impl PaneManager {
                     pane_in_mode: raw.pane_in_mode,
                     current_cmd: raw.current_cmd,
                     last_updated: SystemTime::now(),
-                    last_focused_at,
+                    last_focused_at: None, // set by merge_panes via pane_active transitions
                     status_changed_at: None,
                 }
             })
@@ -181,7 +174,6 @@ impl PaneManager {
             session_attached: get(&TmuxVar::SessionAttached)?.parse::<u32>().unwrap_or(0) != 0,
             pane_in_mode: get(&TmuxVar::PaneInMode)?.parse::<u32>()? != 0,
             current_cmd: get(&TmuxVar::PaneCurrentCommand)?.to_string(),
-            pane_last_active_secs: get(&TmuxVar::PaneLastActive)?.parse::<u64>().unwrap_or(0),
         })
     }
 
@@ -207,20 +199,45 @@ impl PaneManager {
                     } else {
                         p.status_changed_at
                     };
-                    // last_focused_at comes directly from #{pane_last_active} — no
-                    // transition inference needed, so carry the fresh value through.
+                    // Detect focus transition: pane just became active.
+                    pane.last_focused_at = if pane.pane_active && !p.pane_active {
+                        tracing::debug!(pane_id = pane.id.pane_id, "pane focused");
+                        Some(SystemTime::now())
+                    } else {
+                        p.last_focused_at
+                    };
                 }
                 // New pane — start its timers from now.
                 None => {
                     tracing::debug!(pane_id = pane.id.pane_id, cmd = %pane.current_cmd, "new pane discovered");
                     pane.status_changed_at = Some(SystemTime::now());
-                    // last_focused_at already set from #{pane_last_active} in refresh()
+                    pane.last_focused_at = if pane.pane_active {
+                        Some(SystemTime::now())
+                    } else {
+                        None
+                    };
                 }
             }
         }
 
+        sort_panes(&mut fresh);
         self.active_panes = Arc::new(fresh);
     }
+}
+
+/// Sorts panes in place: urgency tier first, then most recent activity within each tier.
+fn sort_panes(panes: &mut Vec<PaneInfo>) {
+    panes.sort_by(|pane_a, pane_b| {
+        pane_a
+            .state
+            .urgency_tier()
+            .cmp(&pane_b.state.urgency_tier())
+            .then_with(|| {
+                pane_b
+                    .most_recent_activity()
+                    .cmp(&pane_a.most_recent_activity())
+            })
+    });
 }
 
 #[cfg(test)]
