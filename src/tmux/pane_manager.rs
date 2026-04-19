@@ -226,7 +226,7 @@ impl PaneManager {
 }
 
 /// Sorts panes in place: urgency tier first, then most recent activity within each tier.
-fn sort_panes(panes: &mut Vec<PaneInfo>) {
+fn sort_panes(panes: &mut [PaneInfo]) {
     panes.sort_by(|pane_a, pane_b| {
         pane_a
             .state
