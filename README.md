@@ -15,16 +15,16 @@ Pre-built binaries are published automatically on every merge to `main`.
 
 | Platform | Download |
 |----------|----------|
-| macOS (Apple Silicon) | [tc-watcher-aarch64-apple-darwin](https://github.com/jayfeng20/tmux-monitor/releases/latest/download/tc-watcher-aarch64-apple-darwin) |
-| macOS (Intel) | [tc-watcher-x86_64-apple-darwin](https://github.com/jayfeng20/tmux-monitor/releases/latest/download/tc-watcher-x86_64-apple-darwin) |
+| macOS (Apple Silicon) | [tc-watcher-aarch64-apple-darwin](https://github.com/jayfeng20/tmux-claude-watcher/releases/latest/download/tc-watcher-aarch64-apple-darwin) |
+| macOS (Intel) | [tc-watcher-x86_64-apple-darwin](https://github.com/jayfeng20/tmux-claude-watcher/releases/latest/download/tc-watcher-x86_64-apple-darwin) |
 
 ```bash
 # Apple Silicon
-curl -L https://github.com/jayfeng20/tmux-monitor/releases/latest/download/tc-watcher-aarch64-apple-darwin \
+curl -L https://github.com/jayfeng20/tmux-claude-watcher/releases/latest/download/tc-watcher-aarch64-apple-darwin \
   -o tc-watcher && chmod +x tc-watcher && mv tc-watcher ~/.local/bin/
 
 # Intel
-curl -L https://github.com/jayfeng20/tmux-monitor/releases/latest/download/tc-watcher-x86_64-apple-darwin \
+curl -L https://github.com/jayfeng20/tmux-claude-watcher/releases/latest/download/tc-watcher-x86_64-apple-darwin \
   -o tc-watcher && chmod +x tc-watcher && mv tc-watcher ~/.local/bin/
 ```
 
@@ -113,7 +113,7 @@ After jumping to a pane, return to the monitor with `prefix + L` (last window), 
 Requires [Rust](https://www.rust-lang.org/tools/install) 1.85 or later (edition 2024).
 
 ```bash
-git clone https://github.com/jayfeng20/tmux-monitor.git
+git clone https://github.com/jayfeng20/tmux-claude-watcher.git
 cd tmux-monitor
 cargo build --release
 cp target/release/tc-watcher ~/.local/bin/
