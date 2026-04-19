@@ -6,11 +6,23 @@ Built with special awareness of [Claude Code](https://claude.ai/code): panes run
 
 **Recommended workflow**
 
-Use `tc-watcher` as a "catalog" for all your tmux windows
-- Open a tmux session
-- Launch `tc-watcher`
-- Navigate to the pane (task) you would like to work on, press `Enter` to jump
-- Once you're done with the task, `prefix [ctrl+b] + L` or `prefix [ctrl+b] + n` to go back to the catalog and work on the next task
+Run tc-watcher in its own dedicated session so it never shares window space with your work.
+
+```bash
+# Create a session just for the monitor
+tmux new-session -s monitor
+tc-watcher
+
+# In another terminal, create your work session(s) as usual
+tmux new-session -s work
+```
+
+- In tc-watcher, navigate with `j`/`k` or `up`/`down` and press `Enter` to jump to any pane across any session
+- Press `prefix + L` to return to the monitor (switches back to the last session this client was on)
+
+> **If you jumped through multiple sessions consecutively**, `prefix + L` only goes back one hop. Use `prefix + (` / `prefix + )` to cycle through all sessions until you reach `monitor`.
+
+> **If you run tc-watcher inside your work session instead** (not recommended), use `prefix + n`/`prefix + p` to navigate between windows and return to the tc-watcher window.
 
 ![Panel](examples/ui.png)
 ![Panel](examples/help.png)

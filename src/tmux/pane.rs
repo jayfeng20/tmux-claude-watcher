@@ -43,6 +43,19 @@ pub struct PaneInfo {
     pub status_changed_at: Option<SystemTime>, // when PaneState last changed; None until first merge
 }
 
+impl PaneInfo {
+    /// Returns the most recent of `status_changed_at` and `last_focused_at`,
+    /// falling back to `UNIX_EPOCH` if both are `None`.
+    pub fn most_recent_activity(&self) -> SystemTime {
+        match (self.status_changed_at, self.last_focused_at) {
+            (Some(a), Some(b)) => a.max(b),
+            (Some(a), None) => a,
+            (None, Some(b)) => b,
+            (None, None) => SystemTime::UNIX_EPOCH,
+        }
+    }
+}
+
 /// Uniquely identifies a tmux pane.
 #[derive(Debug, Clone)]
 pub struct PaneId {
@@ -124,6 +137,18 @@ impl PaneState {
             return PaneState::Claude(ClaudeStatus::from_pane_content(content));
         }
         PaneState::Other(cmd.to_string())
+    }
+
+    /// Urgency tier for sorting: lower = higher in the list.
+    /// Tier is the first sort key; within a tier, panes are sorted by recency.
+    /// TcWatcher is always tier 0; Claude states needing user action are tier 1; everything else is tier 2.
+    pub fn urgency_tier(&self) -> u8 {
+        match self {
+            PaneState::TcWatcher(_) => 0,
+            PaneState::Claude(ClaudeStatus::AwaitingInput)
+            | PaneState::Claude(ClaudeStatus::AwaitingPermission) => 1,
+            _ => 2,
+        }
     }
 
     /// Returns a styled [`Line`] for the Type column (the process name).
