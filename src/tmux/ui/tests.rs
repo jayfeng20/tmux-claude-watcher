@@ -91,13 +91,12 @@ fn jk_navigation_changes_which_pane_enter_jumps_to() {
 }
 
 #[test]
-fn k_does_not_go_below_zero() {
+fn k_at_top_wraps_to_last() {
     let mut app = App::new();
-    app.update_panes(panes(2));
-    app.handle_key(key(KeyCode::Char('k')));
-    app.handle_key(key(KeyCode::Char('k')));
+    app.update_panes(panes(3));
+    app.handle_key(key(KeyCode::Char('k'))); // wrap: 0 → 2
     if let Some(AppAction::JumpToPane(id)) = app.handle_key(key(KeyCode::Enter)) {
-        assert_eq!(id.pane_id, 0);
+        assert_eq!(id.pane_id, 2);
     } else {
         panic!("expected JumpToPane");
     }

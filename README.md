@@ -24,6 +24,7 @@ tmux new-session -s work
 By default tc-watcher binds `prefix + R` on startup and removes it on exit. Pass `--return-key <letter>` to use a different key.
 
 ![Panel](examples/ui.png)
+![Panel](examples/create-session.png)
 ![Panel](examples/help.png)
 
 ---

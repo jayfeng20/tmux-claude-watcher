@@ -250,7 +250,7 @@ impl App {
 
     fn prev(&mut self) {
         if !self.panes.is_empty() {
-            self.selected = self.selected.saturating_sub(1);
+            self.selected = self.selected.checked_sub(1).unwrap_or(self.panes.len() - 1);
         }
     }
 
