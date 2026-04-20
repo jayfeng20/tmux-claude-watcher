@@ -4,7 +4,7 @@
 //! # Types
 //! - [`Args`]    — CLI arguments parsed with `clap::Parser`.
 //! - [`Binding`] — tmux binding lifecycle: registers on construction,
-//!                 call [`Binding::deregister`] on exit.
+//!   call [`Binding::deregister`] on exit.
 
 use crate::tmux::cmds;
 use clap::Parser;

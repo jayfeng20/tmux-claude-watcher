@@ -63,12 +63,11 @@ async fn main() -> Result<(), BoxError> {
                 app.update_panes(Arc::clone(&rx.borrow_and_update()));
             }
             Some(Ok(Event::Key(key))) = events.next() => {
-                if key.kind == KeyEventKind::Press {
-                    if let Some(action) = app.handle_key(key) {
-                        if dispatch(&mut app, action) {
-                            break 'event_loop;
-                        }
-                    }
+                if key.kind == KeyEventKind::Press
+                    && let Some(action) = app.handle_key(key)
+                    && dispatch(&mut app, action)
+                {
+                    break 'event_loop;
                 }
             }
         }
