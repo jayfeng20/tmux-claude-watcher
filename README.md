@@ -4,28 +4,7 @@ A terminal UI that gives you a live, color-coded overview of every active tmux p
 
 Built with special awareness of [Claude Code](https://claude.ai/code): panes running `claude` are classified into fine-grained states (Thinking, Executing, Awaiting Input, Done) so you can glance at the monitor and know exactly where each agent is in its work cycle.
 
-**Recommended workflow**
-
-Run tc-watcher in its own dedicated session so it never shares window space with your work.
-
-```bash
-# Create a session just for the monitor
-tmux new-session -s monitor
-tc-watcher
-
-# In another terminal, create your work session(s) as usual
-tmux new-session -s work
-```
-
-- Navigate with `j`/`k` or `↑`/`↓` and press `↵` to jump to any pane across any session
-- Press `prefix + R` from anywhere to jump straight back to the monitor
-- Press `n` to create a new session, window, or pane; press `d` to delete the selected pane
-
-By default tc-watcher binds `prefix + R` on startup and removes it on exit. Pass `--return-key <letter>` to use a different key.
-
-![Panel](examples/ui.png)
-![Panel](examples/create-session.png)
-![Panel](examples/help.png)
+![Main view](examples/ui.png)
 
 ---
 
@@ -48,13 +27,29 @@ curl -L https://github.com/jayfeng20/tmux-claude-watcher/releases/latest/downloa
   -o tc-watcher && chmod +x tc-watcher && mv tc-watcher ~/.local/bin/
 ```
 
-Then launch it from inside a tmux session:
+---
+
+## Quick start
+
+> tc-watcher must be run from inside a tmux session. If you don't have tmux installed, visit [tmux](https://github.com/tmux/tmux)
+
+Run tc-watcher in its own dedicated session so it never shares window space with your work.
 
 ```bash
+tmux new-session -s watcher
 tc-watcher
 ```
 
-> tc-watcher must be run from inside a tmux session. If you don't have one: `tmux new-session -s work`
+| Key | Action |
+|-----|--------|
+| `j` / `k` | Move selection down / up |
+| `↵ Enter` | Jump to selected pane |
+| `prefix + R` | Jump back to the monitor from anywhere |
+| `n` | Create a new session, window, or pane |
+| `d` | Delete selected pane |
+| `?` | Help |
+
+tc-watcher binds `prefix + R` on startup and removes it on exit. Pass `--return-key <letter>` to use a different key.
 
 ---
 
@@ -70,8 +65,11 @@ tc-watcher
 - **Jump to pane** — press `↵` on any row to switch your terminal directly to that pane
 - **Return key** — registers `prefix + R` (configurable) so you can jump back to the monitor from anywhere
 - **Create sessions / windows / panes** — press `n` to open a drill-down picker; select an existing session to add a window, or choose `+ New` at any level
+
+  ![Session/window picker](examples/create-session.png)
+
 - **Delete panes** — press `d` on the selected row and confirm with `↵`
-- **Priority sorting** — Claude panes awaiting input or permission float to the top so they never get buried
+- **Priority sorting** — Claude panes awaiting input or permission float to the top so they never get buried. Panes that got an update / are recently focused get higher priorities.
 - **Non-intrusive logging** — writes to a rolling daily file in `/tmp`
 
 </details>
@@ -83,7 +81,7 @@ tc-watcher
 |-----|--------|
 | `↵ Enter` | Jump to selected pane |
 | `j` / `↓` | Move selection down |
-| `k` / `↑` | Move selection up |
+| `k` / `↑` | Move selection up (wraps) |
 | `n` | Open session/window/pane creator |
 | `d` | Delete selected pane (asks for confirmation) |
 | `q` / `Q` | Quit |
@@ -91,6 +89,8 @@ tc-watcher
 | `Esc` | Close overlay / cancel |
 
 To return to the monitor after jumping to another pane, press `prefix + R` (or whichever key was configured with `--return-key`).
+
+![Help overlay](examples/help.png)
 
 </details>
 
@@ -184,6 +184,19 @@ RUST_LOG=debug tc-watcher
 ```
 
 </details>
+
+---
+
+## Contributing
+
+Contributions are welcome! Please open an issue before starting work on a non-trivial change so we can align on scope and approach.
+
+1. Fork the repo and create a branch from `main`.
+2. Make your changes and ensure `cargo test` and `cargo clippy --all-targets -- -D warnings` both pass.
+3. Keep commits focused — one logical change per commit.
+4. Open a pull request with a short description of what and why.
+
+For bugs, please include the tc-watcher version, your tmux version (`tmux -V`), and steps to reproduce. (current in beta so probably still lots of bugs)
 
 ---
 
