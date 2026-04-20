@@ -1,5 +1,7 @@
 use super::*;
-use crate::tmux::pane::{PaneId, PaneInfo, PaneState, ShellKind, ShellStatus};
+use crate::tmux::pane::{
+    ClaudeStatus, PaneId, PaneInfo, PaneState, ShellKind, ShellStatus, TcWatcherStatus,
+};
 use std::time::{Duration, SystemTime};
 
 // ---------------------------------------------------------------------------
@@ -336,4 +338,116 @@ fn list_panes_format_contains_all_vars() {
             var.as_ref()
         );
     }
+}
+
+// ---------------------------------------------------------------------------
+// sort_panes — urgency tier and recency ordering
+// ---------------------------------------------------------------------------
+
+#[test]
+fn sort_panes_tier_beats_recency() {
+    // A very recently-updated shell pane must still rank below an older
+    // Claude pane that needs user action.
+    let old = SystemTime::now() - Duration::from_secs(3600);
+    let new = SystemTime::now();
+    let mut panes = vec![
+        make_pane_info(
+            "s",
+            1,
+            false,
+            PaneState::Shell(ShellKind::Bash, ShellStatus::Idle),
+            Some(new),
+            None,
+        ),
+        make_pane_info(
+            "s",
+            2,
+            false,
+            PaneState::Claude(ClaudeStatus::AwaitingInput),
+            Some(old),
+            None,
+        ),
+    ];
+    sort_panes(&mut panes);
+    assert!(
+        matches!(
+            panes[0].state,
+            PaneState::Claude(ClaudeStatus::AwaitingInput)
+        ),
+        "awaiting-input Claude should be first regardless of recency"
+    );
+}
+
+#[test]
+fn sort_panes_tc_watcher_is_first_regardless_of_state() {
+    let mut panes = vec![
+        make_pane_info(
+            "s",
+            1,
+            false,
+            PaneState::Claude(ClaudeStatus::AwaitingInput),
+            Some(SystemTime::now()),
+            None,
+        ),
+        make_pane_info(
+            "s",
+            2,
+            false,
+            PaneState::TcWatcher(TcWatcherStatus::Active),
+            Some(SystemTime::now()),
+            None,
+        ),
+    ];
+    sort_panes(&mut panes);
+    assert!(matches!(panes[0].state, PaneState::TcWatcher(_)));
+}
+
+#[test]
+fn sort_panes_within_same_tier_more_recent_comes_first() {
+    let older = SystemTime::now() - Duration::from_secs(3600);
+    let newer = SystemTime::now();
+    let mut panes = vec![
+        make_pane_info(
+            "s",
+            1,
+            false,
+            PaneState::Shell(ShellKind::Bash, ShellStatus::Idle),
+            Some(older),
+            None,
+        ),
+        make_pane_info(
+            "s",
+            2,
+            false,
+            PaneState::Shell(ShellKind::Zsh, ShellStatus::Idle),
+            Some(newer),
+            None,
+        ),
+    ];
+    sort_panes(&mut panes);
+    assert_eq!(
+        panes[0].id.pane_id, 2,
+        "the pane updated more recently should appear first"
+    );
+}
+
+#[test]
+fn merge_panes_new_active_pane_gets_last_focused_at() {
+    // A pane that appears already-active in its first refresh should have
+    // last_focused_at initialised to now, not left as None.
+    let mut mgr = make_manager();
+    let before = SystemTime::now();
+    let pane = make_pane_info(
+        "s",
+        1,
+        true, /* active */
+        PaneState::Shell(ShellKind::Bash, ShellStatus::Idle),
+        None,
+        None,
+    );
+    mgr.merge_panes(vec![pane]);
+    assert!(
+        mgr.active_panes[0].last_focused_at >= Some(before),
+        "an already-active new pane should have last_focused_at set immediately"
+    );
 }

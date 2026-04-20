@@ -337,3 +337,89 @@ fn state_cell_other_shows_question_mark() {
     let state = PaneState::Other("vim".to_string());
     assert_eq!(state.state_cell().to_string(), "?");
 }
+
+// ---------------------------------------------------------------------------
+// PaneState::urgency_tier — sort priority for the main table
+// ---------------------------------------------------------------------------
+
+#[test]
+fn tc_watcher_is_highest_priority() {
+    assert_eq!(
+        PaneState::TcWatcher(TcWatcherStatus::Active).urgency_tier(),
+        0
+    );
+    assert_eq!(
+        PaneState::TcWatcher(TcWatcherStatus::Paused).urgency_tier(),
+        0
+    );
+}
+
+#[test]
+fn claude_needing_user_action_is_tier_one() {
+    assert_eq!(
+        PaneState::Claude(ClaudeStatus::AwaitingInput).urgency_tier(),
+        1
+    );
+    assert_eq!(
+        PaneState::Claude(ClaudeStatus::AwaitingPermission).urgency_tier(),
+        1
+    );
+}
+
+#[test]
+fn idle_claude_states_are_not_elevated() {
+    // Thinking/Executing/Done/Unknown should NOT be promoted — they don't need user action.
+    assert_eq!(PaneState::Claude(ClaudeStatus::Thinking).urgency_tier(), 2);
+    assert_eq!(PaneState::Claude(ClaudeStatus::Executing).urgency_tier(), 2);
+    assert_eq!(PaneState::Claude(ClaudeStatus::Done).urgency_tier(), 2);
+    assert_eq!(PaneState::Claude(ClaudeStatus::Unknown).urgency_tier(), 2);
+}
+
+// ---------------------------------------------------------------------------
+// PaneInfo::most_recent_activity — used as secondary sort key
+// ---------------------------------------------------------------------------
+
+fn pane_with_times(
+    status: Option<std::time::SystemTime>,
+    focus: Option<std::time::SystemTime>,
+) -> PaneInfo {
+    PaneInfo {
+        id: PaneId {
+            session_name: "s".into(),
+            window_index: 0,
+            window_name: "w".into(),
+            pane_id: 0,
+        },
+        pane_active: false,
+        window_active: true,
+        session_attached: true,
+        pane_in_mode: false,
+        current_cmd: "bash".into(),
+        state: PaneState::Shell(ShellKind::Bash, ShellStatus::Idle),
+        last_updated: std::time::SystemTime::now(),
+        status_changed_at: status,
+        last_focused_at: focus,
+    }
+}
+
+#[test]
+fn most_recent_activity_returns_the_later_timestamp() {
+    let older = std::time::SystemTime::now() - std::time::Duration::from_secs(60);
+    let newer = std::time::SystemTime::now() - std::time::Duration::from_secs(5);
+    assert_eq!(
+        pane_with_times(Some(older), Some(newer)).most_recent_activity(),
+        newer
+    );
+    assert_eq!(
+        pane_with_times(Some(newer), Some(older)).most_recent_activity(),
+        newer
+    );
+}
+
+#[test]
+fn most_recent_activity_falls_back_to_epoch_when_both_none() {
+    assert_eq!(
+        pane_with_times(None, None).most_recent_activity(),
+        std::time::SystemTime::UNIX_EPOCH
+    );
+}

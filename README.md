@@ -17,14 +17,14 @@ tc-watcher
 tmux new-session -s work
 ```
 
-- In tc-watcher, navigate with `j`/`k` or `up`/`down` and press `Enter` to jump to any pane across any session
-- Press `prefix + L` to return to the monitor (switches back to the last session this client was on)
+- Navigate with `j`/`k` or `↑`/`↓` and press `↵` to jump to any pane across any session
+- Press `prefix + R` from anywhere to jump straight back to the monitor
+- Press `n` to create a new session, window, or pane; press `d` to delete the selected pane
 
-> **If you jumped through multiple sessions consecutively**, `prefix + L` only goes back one hop. Use `prefix + (` / `prefix + )` to cycle through all sessions until you reach `monitor`.
-
-> **If you run tc-watcher inside your work session instead** (not recommended), use `prefix + n`/`prefix + p` to navigate between windows and return to the tc-watcher window.
+By default tc-watcher binds `prefix + R` on startup and removes it on exit. Pass `--return-key <letter>` to use a different key.
 
 ![Panel](examples/ui.png)
+![Panel](examples/create-session.png)
 ![Panel](examples/help.png)
 
 ---
@@ -68,6 +68,10 @@ tc-watcher
 - **Timing column** — shows how long each pane has been in its current state
 - **Active column** — indicates panes that are truly receiving keyboard input
 - **Jump to pane** — press `↵` on any row to switch your terminal directly to that pane
+- **Return key** — registers `prefix + R` (configurable) so you can jump back to the monitor from anywhere
+- **Create sessions / windows / panes** — press `n` to open a drill-down picker; select an existing session to add a window, or choose `+ New` at any level
+- **Delete panes** — press `d` on the selected row and confirm with `↵`
+- **Priority sorting** — Claude panes awaiting input or permission float to the top so they never get buried
 - **Non-intrusive logging** — writes to a rolling daily file in `/tmp`
 
 </details>
@@ -80,11 +84,28 @@ tc-watcher
 | `↵ Enter` | Jump to selected pane |
 | `j` / `↓` | Move selection down |
 | `k` / `↑` | Move selection up |
+| `n` | Open session/window/pane creator |
+| `d` | Delete selected pane (asks for confirmation) |
 | `q` / `Q` | Quit |
 | `?` | Toggle help panel |
-| `Esc` | Close help panel |
+| `Esc` | Close overlay / cancel |
 
-After jumping to a pane, return to the monitor with `prefix + L` (last window), `prefix + <number>`, or `prefix + p`/`n`.
+To return to the monitor after jumping to another pane, press `prefix + R` (or whichever key was configured with `--return-key`).
+
+</details>
+
+<details>
+<summary>CLI flags</summary>
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `-r`, `--return-key <KEY>` | `R` | tmux prefix key bound to jump back to the monitor. |
+
+Example — use `prefix + M` instead of the default:
+
+```bash
+tc-watcher --return-key M
+```
 
 </details>
 

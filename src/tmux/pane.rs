@@ -8,6 +8,7 @@
 use crate::theme;
 use ratatui::style::Style;
 use ratatui::text::{Line, Span};
+use std::fmt;
 use std::time::SystemTime;
 
 mod claude;
@@ -56,6 +57,53 @@ impl PaneInfo {
     }
 }
 
+// ---------------------------------------------------------------------------
+// Tmux name / target types
+// ---------------------------------------------------------------------------
+
+/// The name of a tmux session.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct SessionName(String);
+
+/// The name of a tmux window.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct WindowName(String);
+
+macro_rules! impl_name {
+    ($T:ident) => {
+        impl $T {
+            pub fn new(s: impl Into<String>) -> Self {
+                Self(s.into())
+            }
+        }
+        impl AsRef<str> for $T {
+            fn as_ref(&self) -> &str {
+                &self.0
+            }
+        }
+        impl fmt::Display for $T {
+            fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                f.write_str(&self.0)
+            }
+        }
+        impl From<String> for $T {
+            fn from(s: String) -> Self {
+                Self(s)
+            }
+        }
+        impl From<&str> for $T {
+            fn from(s: &str) -> Self {
+                Self(s.to_owned())
+            }
+        }
+    };
+}
+
+impl_name!(SessionName);
+impl_name!(WindowName);
+
+// ---------------------------------------------------------------------------
+
 /// Uniquely identifies a tmux pane.
 #[derive(Debug, Clone)]
 pub struct PaneId {
@@ -70,6 +118,17 @@ impl PaneId {
     /// Uses the `%N` pane ID format, which is unique across all sessions and unambiguous.
     pub fn target(&self) -> String {
         format!("%{}", self.pane_id)
+    }
+}
+
+impl fmt::Display for PaneId {
+    /// Human-readable form: `session:window.%pane_id`
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "{}:{}.%{}",
+            self.session_name, self.window_name, self.pane_id
+        )
     }
 }
 
