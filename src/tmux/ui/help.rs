@@ -5,13 +5,13 @@
 //! bindings — each built by its own function and assembled in `render`.
 
 use super::constants::{
-    HELP_COL_LABEL_PAD, HELP_HEIGHT, HELP_ICON_DESC_PAD, HELP_KEY_LABEL_PAD, HELP_TAG_WIDTH,
-    HELP_WIDTH,
+    HELP_CLOSE_HINT, HELP_COL_LABEL_PAD, HELP_HEIGHT, HELP_ICON_DESC_PAD, HELP_KEY_LABEL_PAD,
+    HELP_TAG_WIDTH, HELP_WIDTH, KEY_DELETE, KEY_ENTER_LONG, KEY_NAV_LONG, KEY_NEW, KEY_QUIT,
+    centered_rect,
 };
 use crate::theme;
 use ratatui::{
     Frame,
-    layout::Rect,
     style::{Color, Modifier, Style},
     text::{Line, Span},
     widgets::{Block, Borders, Clear, Paragraph},
@@ -41,7 +41,6 @@ pub(super) fn render(frame: &mut Frame) {
 
 fn state_icons() -> Vec<Line<'static>> {
     let bold = Style::default().add_modifier(Modifier::BOLD);
-
     vec![
         Line::from(Span::styled("State icons", bold)),
         icon(theme::ICON_THINKING, "Thinking", Some(theme::CLAUDE_LABEL)),
@@ -65,8 +64,6 @@ fn state_icons() -> Vec<Line<'static>> {
     ]
 }
 
-/// One state-icon row: colored icon, plain description padded to `HELP_ICON_DESC_PAD`,
-/// and an optional colored process-type tag.
 fn icon(
     state: (&'static str, ratatui::style::Color),
     label: &'static str,
@@ -110,20 +107,21 @@ fn key_bindings() -> Vec<Line<'static>> {
     let bold = Style::default().add_modifier(Modifier::BOLD);
     vec![
         Line::from(Span::styled("Key bindings", bold)),
-        binding("↵ Enter", "jump to pane"),
-        binding("↑↓ / jk", "navigate"),
-        binding("q", "quit"),
+        binding(KEY_ENTER_LONG, "jump to pane"),
+        binding(KEY_NAV_LONG, "navigate"),
+        binding(KEY_NEW, "new session / window / pane"),
+        binding(KEY_DELETE, "delete selected pane"),
+        binding(KEY_QUIT, "quit"),
     ]
 }
 
 fn close_hint() -> Line<'static> {
     Line::from(Span::styled(
-        "? or Esc to close",
+        HELP_CLOSE_HINT,
         Style::default().fg(theme::SUBTLE),
     ))
 }
 
-/// Column name (SAPPHIRE, padded to `HELP_COL_LABEL_PAD`) followed by its definition (white).
 fn col(name: &'static str, definition: &'static str) -> Line<'static> {
     Line::from(vec![
         Span::styled(
@@ -134,7 +132,6 @@ fn col(name: &'static str, definition: &'static str) -> Line<'static> {
     ])
 }
 
-/// Key name (TEAL, padded to `HELP_KEY_LABEL_PAD`) followed by its description (white).
 fn binding(key: &'static str, description: &'static str) -> Line<'static> {
     Line::from(vec![
         Span::styled(
@@ -143,15 +140,4 @@ fn binding(key: &'static str, description: &'static str) -> Line<'static> {
         ),
         Span::raw(description),
     ])
-}
-
-fn centered_rect(width: u16, height: u16, area: Rect) -> Rect {
-    let x = area.x + area.width.saturating_sub(width) / 2;
-    let y = area.y + area.height.saturating_sub(height) / 2;
-    Rect {
-        x,
-        y,
-        width: width.min(area.width),
-        height: height.min(area.height),
-    }
 }

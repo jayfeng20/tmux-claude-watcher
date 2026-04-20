@@ -5,10 +5,10 @@
 //! classifies each pane's state, and diffs successive snapshots to maintain
 //! accurate timing metadata.
 
+use crate::tmux::cmds;
 use crate::tmux::pane::{PaneId, PaneInfo, PaneState};
 use std::collections::HashMap;
 use std::error::Error;
-use std::process::Command;
 use std::sync::Arc;
 use std::time::SystemTime;
 use strum::{AsRefStr, EnumIter, EnumString, IntoEnumIterator};
@@ -120,10 +120,7 @@ impl PaneManager {
             .collect::<Vec<String>>()
             .join("|");
 
-        let output = Command::new("tmux")
-            .args(["list-panes", "-a", "-F", &output_fmt])
-            .output()?;
-
+        let output = cmds::list_panes(&output_fmt)?;
         let stdout = String::from_utf8(output.stdout)?;
         stdout.lines().map(|l| self.parse_pane_info(l)).collect()
     }
@@ -131,9 +128,7 @@ impl PaneManager {
     /// Runs `tmux capture-pane -p -t <target>` and returns the visible pane content.
     #[tracing::instrument]
     fn capture_pane(target: &str) -> Result<String, Box<dyn Error + Send + Sync>> {
-        let output = Command::new("tmux")
-            .args(["capture-pane", "-p", "-t", target])
-            .output()?;
+        let output = cmds::capture_pane(target)?;
         Ok(String::from_utf8(output.stdout)?)
     }
 

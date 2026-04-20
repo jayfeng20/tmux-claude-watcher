@@ -38,10 +38,7 @@ pub(super) fn render(frame: &mut Frame, area: Rect, panes: &[PaneInfo], selected
                 ("no", theme::DIM)
             };
             Row::new(vec![
-                Cell::from(format!(
-                    "{}:{}.{}",
-                    pane.id.session_name, pane.id.window_index, pane.id.pane_id
-                )),
+                Cell::from(pane.id.to_string()),
                 Cell::from(pane.state.type_cell()),
                 Cell::from(pane.state.state_cell()),
                 Cell::from(active_label).style(Style::default().fg(active_color)),

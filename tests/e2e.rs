@@ -298,7 +298,7 @@ fn j_key_moves_selection_down() {
     // After two j presses on 2 panes, selection wraps back to first.
     let output_after_wrap = render(&app);
     // First pane's session appears somewhere near top of table.
-    assert!(output_after_wrap.contains("s:0."));
+    assert!(output_after_wrap.contains("s:win.%"));
 }
 
 #[test]
@@ -321,7 +321,7 @@ fn k_key_on_first_row_does_not_underflow() {
     )]));
     // Pressing k at the top row should clamp — no panic, no wrap.
     app.handle_key(press(KeyCode::Char('k')));
-    assert!(render(&app).contains("s:0.")); // still renders fine
+    assert!(render(&app).contains("s:win.%")); // still renders fine
 }
 
 #[test]
@@ -358,5 +358,5 @@ fn update_panes_clamps_selection_when_list_shrinks() {
     )]));
 
     // Should still render without panic.
-    assert!(render(&app).contains("s:0."));
+    assert!(render(&app).contains("s:win.%"));
 }
