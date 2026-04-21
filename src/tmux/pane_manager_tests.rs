@@ -1,6 +1,7 @@
 use super::*;
 use crate::tmux::pane::{
-    ClaudeStatus, PaneId, PaneInfo, PaneState, ShellKind, ShellStatus, TcWatcherStatus,
+    ClaudeStatus, PaneId, PaneInfo, PaneState, ProcessOutcome, ShellKind, ShellStatus,
+    TcWatcherStatus,
 };
 use std::time::{Duration, SystemTime};
 
@@ -22,12 +23,13 @@ struct PaneLine<'a> {
     window_active: &'a str,
     session_name: &'a str,
     session_attached: &'a str,
+    pane_last_exit_status: &'a str,
 }
 
 /// Builds a pipe-delimited line in `TmuxVar::iter()` order.
 fn make_pane_line(p: PaneLine<'_>) -> String {
     format!(
-        "{}|{}|{}|{}|{}|{}|{}|{}|{}",
+        "{}|{}|{}|{}|{}|{}|{}|{}|{}|{}",
         p.pane_id,
         p.pane_active,
         p.pane_current_command,
@@ -36,7 +38,8 @@ fn make_pane_line(p: PaneLine<'_>) -> String {
         p.window_name,
         p.window_active,
         p.session_name,
-        p.session_attached
+        p.session_attached,
+        p.pane_last_exit_status,
     )
 }
 
@@ -61,6 +64,7 @@ fn make_pane_info(
         session_attached: true,
         pane_in_mode: false,
         current_cmd: "bash".to_string(),
+        last_exit_status: 0,
         state,
         last_updated: SystemTime::now(),
         status_changed_at,
@@ -85,6 +89,7 @@ fn parse_raw_pane_valid() {
         window_active: "1",
         session_name: "work",
         session_attached: "1",
+        pane_last_exit_status: "0",
     });
     let raw = mgr
         .parse_pane_info(&line)
@@ -113,6 +118,7 @@ fn parse_raw_pane_inactive() {
         window_active: "1",
         session_name: "main",
         session_attached: "1",
+        pane_last_exit_status: "0",
     });
     let raw = mgr.parse_pane_info(&line).expect("should parse");
     assert!(!raw.pane_active);
@@ -132,6 +138,7 @@ fn parse_raw_pane_copy_mode() {
         window_active: "1",
         session_name: "sys",
         session_attached: "1",
+        pane_last_exit_status: "0",
     });
     let raw = mgr.parse_pane_info(&line).expect("should parse");
     assert!(raw.pane_in_mode);
@@ -151,6 +158,7 @@ fn parse_raw_pane_id_without_percent_prefix() {
         window_active: "1",
         session_name: "dev",
         session_attached: "1",
+        pane_last_exit_status: "0",
     });
     let raw = mgr
         .parse_pane_info(&line)
@@ -171,6 +179,7 @@ fn parse_raw_pane_non_numeric_window_index_errors() {
         window_active: "1",
         session_name: "sess",
         session_attached: "1",
+        pane_last_exit_status: "0",
     });
     assert!(mgr.parse_pane_info(&line).is_err());
 }
@@ -198,7 +207,7 @@ fn merge_panes_new_pane_initialises_timers() {
         None,
         None,
     )];
-    mgr.merge_panes(fresh);
+    mgr.derive_latest_snapshot(fresh);
 
     let pane = &mgr.active_panes[0];
     assert!(
@@ -228,7 +237,7 @@ fn merge_panes_unchanged_state_carries_forward_status_changed_at() {
     )]);
 
     // Fresh pane has the same state — status_changed_at must be carried forward.
-    mgr.merge_panes(vec![make_pane_info("work", 1, false, state, None, None)]);
+    mgr.derive_latest_snapshot(vec![make_pane_info("work", 1, false, state, None, None)]);
 
     assert_eq!(mgr.active_panes[0].status_changed_at, Some(old_time));
 }
@@ -248,7 +257,7 @@ fn merge_panes_changed_state_resets_status_changed_at() {
     )]);
 
     let before = SystemTime::now();
-    mgr.merge_panes(vec![make_pane_info(
+    mgr.derive_latest_snapshot(vec![make_pane_info(
         "work",
         1,
         false,
@@ -278,7 +287,7 @@ fn merge_panes_records_focus_when_pane_becomes_active() {
 
     let before = SystemTime::now();
     // Pane transitions to active — merge_panes must record the focus time.
-    mgr.merge_panes(vec![make_pane_info("work", 1, true, state, None, None)]);
+    mgr.derive_latest_snapshot(vec![make_pane_info("work", 1, true, state, None, None)]);
 
     assert!(
         mgr.active_panes[0].last_focused_at >= Some(before),
@@ -303,7 +312,7 @@ fn merge_panes_carries_forward_last_focused_at_while_still_active() {
     )]);
 
     // Pane remains active — last_focused_at must not be reset.
-    mgr.merge_panes(vec![make_pane_info("work", 1, true, state, None, None)]);
+    mgr.derive_latest_snapshot(vec![make_pane_info("work", 1, true, state, None, None)]);
 
     assert_eq!(mgr.active_panes[0].last_focused_at, Some(focus_time));
 }
@@ -445,9 +454,137 @@ fn merge_panes_new_active_pane_gets_last_focused_at() {
         None,
         None,
     );
-    mgr.merge_panes(vec![pane]);
+    mgr.derive_latest_snapshot(vec![pane]);
     assert!(
         mgr.active_panes[0].last_focused_at >= Some(before),
         "an already-active new pane should have last_focused_at set immediately"
     );
+}
+
+// ---------------------------------------------------------------------------
+// JustFinished transition logic
+// ---------------------------------------------------------------------------
+
+#[test]
+fn other_to_shell_sets_just_finished_when_unfocused() {
+    let mut mgr = make_manager();
+    mgr.active_panes = Arc::new(vec![make_pane_info(
+        "s",
+        1,
+        false,
+        PaneState::Other("cargo".into()),
+        Some(SystemTime::now()),
+        None,
+    )]);
+
+    mgr.derive_latest_snapshot(vec![make_pane_info(
+        "s",
+        1,
+        false,
+        PaneState::Shell(ShellKind::Zsh, ShellStatus::Idle),
+        None,
+        None,
+    )]);
+
+    assert!(matches!(
+        mgr.active_panes[0].state,
+        PaneState::Shell(ShellKind::Zsh, ShellStatus::JustFinished { .. })
+    ));
+}
+
+#[test]
+fn other_to_shell_stays_idle_when_already_focused() {
+    let mut mgr = make_manager();
+    mgr.active_panes = Arc::new(vec![make_pane_info(
+        "s",
+        1,
+        true,
+        PaneState::Other("cargo".into()),
+        Some(SystemTime::now()),
+        None,
+    )]);
+
+    mgr.derive_latest_snapshot(vec![make_pane_info(
+        "s",
+        1,
+        true,
+        PaneState::Shell(ShellKind::Zsh, ShellStatus::Idle),
+        None,
+        None,
+    )]);
+
+    assert!(matches!(
+        mgr.active_panes[0].state,
+        PaneState::Shell(ShellKind::Zsh, ShellStatus::Idle)
+    ));
+}
+
+#[test]
+fn just_finished_preserved_across_polls_until_focused() {
+    let mut mgr = make_manager();
+    let just_finished = PaneState::Shell(
+        ShellKind::Zsh,
+        ShellStatus::JustFinished {
+            cmd: "cargo".into(),
+            outcome: ProcessOutcome::Success,
+        },
+    );
+    mgr.active_panes = Arc::new(vec![make_pane_info(
+        "s",
+        1,
+        false,
+        just_finished,
+        Some(SystemTime::now()),
+        None,
+    )]);
+
+    // Next poll: tmux reports shell as idle again — JustFinished must be preserved.
+    mgr.derive_latest_snapshot(vec![make_pane_info(
+        "s",
+        1,
+        false,
+        PaneState::Shell(ShellKind::Zsh, ShellStatus::Idle),
+        None,
+        None,
+    )]);
+
+    assert!(matches!(
+        mgr.active_panes[0].state,
+        PaneState::Shell(ShellKind::Zsh, ShellStatus::JustFinished { .. })
+    ));
+}
+
+#[test]
+fn just_finished_clears_when_pane_is_focused() {
+    let mut mgr = make_manager();
+    let just_finished = PaneState::Shell(
+        ShellKind::Zsh,
+        ShellStatus::JustFinished {
+            cmd: "cargo".into(),
+            outcome: ProcessOutcome::Success,
+        },
+    );
+    mgr.active_panes = Arc::new(vec![make_pane_info(
+        "s",
+        1,
+        false,
+        just_finished,
+        Some(SystemTime::now()),
+        None,
+    )]);
+
+    // User focuses the pane — JustFinished should clear to Idle.
+    mgr.derive_latest_snapshot(vec![make_pane_info(
+        "s",
+        1,
+        true,
+        PaneState::Shell(ShellKind::Zsh, ShellStatus::Idle),
+        None,
+        None,
+    )]);
+
+    assert!(matches!(
+        mgr.active_panes[0].state,
+        PaneState::Shell(ShellKind::Zsh, ShellStatus::Idle)
+    ));
 }

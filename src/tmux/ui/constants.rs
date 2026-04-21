@@ -127,7 +127,7 @@ pub const ERROR_TTL: Duration = Duration::from_secs(5);
 
 pub const COL_ID_WIDTH: u16 = 20;
 pub const COL_TYPE_WIDTH: u16 = 10;
-pub const COL_STATE_WIDTH: u16 = 6;
+pub const COL_STATE_WIDTH: u16 = 9;
 pub const COL_ACTIVE_WIDTH: u16 = 8;
 pub const COL_LAST_UPDATED_WIDTH: u16 = 13;
 

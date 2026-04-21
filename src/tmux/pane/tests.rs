@@ -1,4 +1,5 @@
 use super::*;
+use crate::tmux::pane::shell::ProcessOutcome;
 
 // ---------------------------------------------------------------------------
 // PaneId
@@ -71,22 +72,6 @@ fn shell_status_awaiting_input_when_no_prompt_visible() {
     assert_eq!(
         ShellStatus::from_pane_content(content),
         ShellStatus::AwaitingInput
-    );
-}
-
-#[test]
-fn shell_status_error_on_command_not_found() {
-    assert_eq!(
-        ShellStatus::from_pane_content("bash: foobar: command not found"),
-        ShellStatus::Error
-    );
-}
-
-#[test]
-fn shell_status_error_on_zsh_prefix() {
-    assert_eq!(
-        ShellStatus::from_pane_content("zsh: no such file or directory: foo"),
-        ShellStatus::Error
     );
 }
 
@@ -367,6 +352,50 @@ fn claude_needing_user_action_is_tier_one() {
 }
 
 #[test]
+fn just_finished_is_tier_one() {
+    let success = PaneState::Shell(
+        ShellKind::Zsh,
+        ShellStatus::JustFinished {
+            cmd: "cargo".into(),
+            outcome: ProcessOutcome::Success,
+        },
+    );
+    let failed = PaneState::Shell(
+        ShellKind::Zsh,
+        ShellStatus::JustFinished {
+            cmd: "gradle".into(),
+            outcome: ProcessOutcome::Failed,
+        },
+    );
+    assert_eq!(success.urgency_tier(), 1);
+    assert_eq!(failed.urgency_tier(), 1);
+}
+
+#[test]
+fn state_cell_just_finished_success_shows_icon_and_cmd() {
+    let state = PaneState::Shell(
+        ShellKind::Zsh,
+        ShellStatus::JustFinished {
+            cmd: "cargo".into(),
+            outcome: ProcessOutcome::Success,
+        },
+    );
+    assert_eq!(state.state_cell().to_string(), "✓ cargo");
+}
+
+#[test]
+fn state_cell_just_finished_failed_shows_icon_and_cmd() {
+    let state = PaneState::Shell(
+        ShellKind::Zsh,
+        ShellStatus::JustFinished {
+            cmd: "gradle".into(),
+            outcome: ProcessOutcome::Failed,
+        },
+    );
+    assert_eq!(state.state_cell().to_string(), "✗ gradle");
+}
+
+#[test]
 fn idle_claude_states_are_not_elevated() {
     // Thinking/Executing/Done/Unknown should NOT be promoted — they don't need user action.
     assert_eq!(PaneState::Claude(ClaudeStatus::Thinking).urgency_tier(), 2);
@@ -395,6 +424,7 @@ fn pane_with_times(
         session_attached: true,
         pane_in_mode: false,
         current_cmd: "bash".into(),
+        last_exit_status: 0,
         state: PaneState::Shell(ShellKind::Bash, ShellStatus::Idle),
         last_updated: std::time::SystemTime::now(),
         status_changed_at: status,

@@ -69,7 +69,7 @@ tc-watcher binds `prefix + R` on startup and removes it on exit. Pass `--return-
   ![Session/window picker](examples/create-session.png)
 
 - **Delete panes** — press `d` on the selected row and confirm with `↵`
-- **Priority sorting** — Claude panes awaiting input or permission float to the top so they never get buried. Panes that got an update / are recently focused get higher priorities.
+- **Priority sorting** — Claude panes awaiting input or permission, and shell panes with a just-finished subprocess float to the top so they never get buried. Panes that got an update / are recently focused get higher priorities.
 - **Non-intrusive logging** — writes to a rolling daily file in `/tmp`
 
 </details>
@@ -128,8 +128,9 @@ tc-watcher --return-key M
 | Icon | Color | State | Meaning |
 |------|-------|-------|---------|
 | `○` | green | Idle | Shell prompt visible — ready |
-| `❯` | red | Awaiting Input | Process running or requesting input |
-| `✗` | red | Error | Error output on the last line |
+| `❯` | red | Awaiting Input | Shell is foreground but no prompt visible (e.g. `read`, sudo password) |
+| `✓ <cmd>` | green | Just Finished | Subprocess completed successfully — clears when you focus the pane |
+| `✗ <cmd>` | red | Just Finished | Subprocess exited with an error — clears when you focus the pane |
 
 **tc-watcher panes**
 
