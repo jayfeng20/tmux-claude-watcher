@@ -16,7 +16,7 @@ mod shell;
 mod tc_watcher;
 
 pub use claude::ClaudeStatus;
-pub use shell::{ShellKind, ShellStatus};
+pub use shell::{ProcessOutcome, ShellKind, ShellStatus};
 pub use tc_watcher::TcWatcherStatus;
 
 #[cfg(test)]
@@ -36,8 +36,9 @@ pub struct PaneInfo {
     /// right now. A pane can have `pane_active && window_active` while `session_attached` is
     /// false when the session exists in the background with no terminal attached to it.
     pub session_attached: bool,
-    pub pane_in_mode: bool,  // whether in copy_mode
-    pub current_cmd: String, // foreground process name reported by tmux
+    pub pane_in_mode: bool,    // whether in copy_mode
+    pub current_cmd: String,   // foreground process name reported by tmux
+    pub last_exit_status: i32, // #{pane_last_exit_status} from tmux
     pub state: PaneState,
     pub last_updated: SystemTime,
     pub last_focused_at: Option<SystemTime>, // when pane became focused; None if never
@@ -177,10 +178,6 @@ fn is_claude_process(cmd: &str) -> bool {
 
 impl PaneState {
     /// Constructs a `PaneState` from a tmux process name, visible content, and copy-mode flag.
-    ///
-    /// `TcWatcher(Stopped)` is never produced here — it is inferred by
-    /// [`crate::tmux::pane_manager::PaneManager`] when a pane transitions from
-    /// `TcWatcher(_)` to a shell process.
     pub fn from_process(cmd: &str, content: &str, pane_in_mode: bool) -> PaneState {
         if cmd == "tc-watcher" {
             return PaneState::TcWatcher(if pane_in_mode {
@@ -205,7 +202,8 @@ impl PaneState {
         match self {
             PaneState::TcWatcher(_) => 0,
             PaneState::Claude(ClaudeStatus::AwaitingInput)
-            | PaneState::Claude(ClaudeStatus::AwaitingPermission) => 1,
+            | PaneState::Claude(ClaudeStatus::AwaitingPermission)
+            | PaneState::Shell(_, ShellStatus::JustFinished { .. }) => 1,
             _ => 2,
         }
     }
@@ -231,8 +229,19 @@ impl PaneState {
         }
     }
 
-    /// Returns a styled [`Line`] for the State column (icon only).
+    /// Returns a styled [`Line`] for the State column (icon, or icon + cmd for `JustFinished`).
     pub fn state_cell(&self) -> Line<'_> {
+        if let PaneState::Shell(_, ShellStatus::JustFinished { cmd, outcome }) = self {
+            let (icon, color) = match outcome {
+                ProcessOutcome::Success => theme::ICON_DONE,
+                ProcessOutcome::Failed => theme::ICON_ERROR,
+            };
+            return Line::from(Span::styled(
+                format!("{icon} {cmd}"),
+                Style::default().fg(color),
+            ));
+        }
+
         let (icon, color) = match self {
             PaneState::Shell(_, status) => status.display(),
             PaneState::Claude(status) => status.display(),

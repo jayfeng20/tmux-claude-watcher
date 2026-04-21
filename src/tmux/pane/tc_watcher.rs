@@ -1,11 +1,5 @@
-//! State classification for tc-watcher panes.
-//!
-//! The monitor recognises itself by process name (`tc-watcher`) and renders
-//! with a distinctive label colour. The `Stopped` state is inferred by
-//! [`crate::tmux::pane_manager::PaneManager`] via state history: when a pane
-//! transitions from `TcWatcher(_)` to a shell process, the manager overrides
-//! the new state back to `TcWatcher(Stopped)` so the pane stays visually
-//! identifiable until tc-watcher is relaunched.
+//! State classification for tc-watcher panes — active (polling)
+//! or paused (`tmux` copy mode).
 
 use crate::theme;
 use ratatui::style::Color;

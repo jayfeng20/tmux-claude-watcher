@@ -247,6 +247,7 @@ mod tests {
             session_attached: true,
             pane_in_mode: false,
             current_cmd: "bash".into(),
+            last_exit_status: 0,
             state: PaneState::Shell(ShellKind::Bash, ShellStatus::Idle),
             last_updated: SystemTime::now(),
             status_changed_at: None,

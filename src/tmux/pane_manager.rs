@@ -6,7 +6,7 @@
 //! accurate timing metadata.
 
 use crate::tmux::cmds;
-use crate::tmux::pane::{PaneId, PaneInfo, PaneState};
+use crate::tmux::pane::{PaneId, PaneInfo, PaneState, ProcessOutcome, ShellStatus};
 use std::collections::HashMap;
 use std::error::Error;
 use std::sync::Arc;
@@ -27,6 +27,7 @@ enum TmuxVar {
     WindowActive,
     SessionName,
     SessionAttached,
+    PaneLastExitStatus,
 }
 
 /// Parsed tmux metadata for one pane, before classification.
@@ -39,6 +40,7 @@ struct RawPane {
     session_attached: bool,
     pane_in_mode: bool,
     current_cmd: String,
+    last_exit_status: i32,
 }
 
 /// Manages the state of all active tmux panes.
@@ -82,7 +84,7 @@ impl PaneManager {
     pub fn refresh(&mut self) -> Result<(), Box<dyn Error + Send + Sync>> {
         let raw_panes = self.list_panes()?;
 
-        let fresh = raw_panes
+        let current_snapshot = raw_panes
             .into_iter()
             .map(|raw| {
                 let content = Self::capture_pane(&raw.id.target()).unwrap_or_else(|e| {
@@ -98,14 +100,15 @@ impl PaneManager {
                     session_attached: raw.session_attached,
                     pane_in_mode: raw.pane_in_mode,
                     current_cmd: raw.current_cmd,
+                    last_exit_status: raw.last_exit_status,
                     last_updated: SystemTime::now(),
-                    last_focused_at: None, // set by merge_panes via pane_active transitions
+                    last_focused_at: None,
                     status_changed_at: None,
                 }
             })
             .collect();
 
-        self.merge_panes(fresh);
+        self.derive_latest_snapshot(current_snapshot);
         tracing::info!(count = self.active_panes.len(), "panes refreshed");
         Ok(())
     }
@@ -169,55 +172,93 @@ impl PaneManager {
             session_attached: get(&TmuxVar::SessionAttached)?.parse::<u32>().unwrap_or(0) != 0,
             pane_in_mode: get(&TmuxVar::PaneInMode)?.parse::<u32>()? != 0,
             current_cmd: get(&TmuxVar::PaneCurrentCommand)?.to_string(),
+            last_exit_status: get(&TmuxVar::PaneLastExitStatus)?
+                .parse::<i32>()
+                .unwrap_or(0),
         })
     }
 
-    /// Diffs `fresh` against `active_panes` and carries forward timing fields.
-    ///
-    /// This is the sole authority on `status_changed_at` and `last_focused_at` —
-    /// both are initialized to [`TIMING_PENDING`] in `refresh` and always set here.
-    #[tracing::instrument(skip(self, fresh), fields(count = fresh.len()))]
-    fn merge_panes(&mut self, mut fresh: Vec<PaneInfo>) {
-        let prev: HashMap<(String, u32), &PaneInfo> = self
+    /// Builds the next `active_panes` snapshot by merging freshly-polled pane data
+    /// with the previous snapshot with some derived fields, e.g. state
+    #[tracing::instrument(skip(self, current_snapshot), fields(count = current_snapshot.len()))]
+    fn derive_latest_snapshot(&mut self, mut current_snapshot: Vec<PaneInfo>) {
+        let prev_snapshot: HashMap<(String, u32), &PaneInfo> = self
             .active_panes
             .iter()
             .map(|p| ((p.id.session_name.clone(), p.id.pane_id), p))
             .collect();
 
-        for pane in &mut fresh {
-            let key = (pane.id.session_name.clone(), pane.id.pane_id);
-            match prev.get(&key) {
-                Some(p) => {
-                    pane.status_changed_at = if p.state != pane.state {
-                        tracing::debug!(pane_id = pane.id.pane_id, old = ?p.state, new = ?pane.state, "state changed");
-                        Some(SystemTime::now())
-                    } else {
-                        p.status_changed_at
-                    };
-                    // Detect focus transition: pane just became active.
-                    pane.last_focused_at = if pane.pane_active && !p.pane_active {
-                        tracing::debug!(pane_id = pane.id.pane_id, "pane focused");
-                        Some(SystemTime::now())
-                    } else {
-                        p.last_focused_at
-                    };
+        for current in &mut current_snapshot {
+            let key = (current.id.session_name.clone(), current.id.pane_id);
+            match prev_snapshot.get(&key) {
+                Some(prev) => {
+                    update_pane_state(current, prev);
+                    update_status_changed_at(current, prev);
+                    update_last_focused_at(current, prev);
                 }
-                // New pane — start its timers from now.
                 None => {
-                    tracing::debug!(pane_id = pane.id.pane_id, cmd = %pane.current_cmd, "new pane discovered");
-                    pane.status_changed_at = Some(SystemTime::now());
-                    pane.last_focused_at = if pane.pane_active {
-                        Some(SystemTime::now())
-                    } else {
-                        None
-                    };
+                    tracing::debug!(pane_id = current.id.pane_id, cmd = %current.current_cmd, "new pane discovered");
+                    current.status_changed_at = Some(SystemTime::now());
+                    current.last_focused_at = current.pane_active.then(SystemTime::now);
                 }
             }
         }
 
-        sort_panes(&mut fresh);
-        self.active_panes = Arc::new(fresh);
+        sort_panes(&mut current_snapshot);
+        self.active_panes = Arc::new(current_snapshot);
     }
+}
+
+/// Sets `current_pane.state` for transitions requiring a diff against the previous poll:
+/// marks `JustFinished` when a subprocess exits, and preserves it until the user focuses the pane.
+fn update_pane_state(current: &mut PaneInfo, prev: &PaneInfo) {
+    let just_focused = current.pane_active && !prev.pane_active;
+
+    match &prev.state {
+        // Other(cmd) → Shell: subprocess exited. Notify unless user is already watching.
+        PaneState::Other(cmd) if !current.pane_active => {
+            if let PaneState::Shell(kind, _) = &current.state {
+                current.state = PaneState::Shell(
+                    kind.clone(),
+                    ShellStatus::JustFinished {
+                        cmd: cmd.clone(),
+                        outcome: ProcessOutcome::from_exit_status(current.last_exit_status),
+                    },
+                );
+            }
+        }
+        // Preserve JustFinished across polls until the user focuses the pane.
+        PaneState::Shell(kind, ShellStatus::JustFinished { cmd, outcome })
+            if !just_focused && matches!(current.state, PaneState::Shell(_, ShellStatus::Idle)) =>
+        {
+            current.state = PaneState::Shell(
+                kind.clone(),
+                ShellStatus::JustFinished {
+                    cmd: cmd.clone(),
+                    outcome: outcome.clone(),
+                },
+            );
+        }
+        _ => {}
+    }
+}
+
+fn update_status_changed_at(current: &mut PaneInfo, prev: &PaneInfo) {
+    current.status_changed_at = if prev.state != current.state {
+        tracing::debug!(pane_id = current.id.pane_id, old = ?prev.state, new = ?current.state, "state changed");
+        Some(SystemTime::now())
+    } else {
+        prev.status_changed_at
+    };
+}
+
+fn update_last_focused_at(current: &mut PaneInfo, prev: &PaneInfo) {
+    current.last_focused_at = if current.pane_active && !prev.pane_active {
+        tracing::debug!(pane_id = current.id.pane_id, "pane focused");
+        Some(SystemTime::now())
+    } else {
+        prev.last_focused_at
+    };
 }
 
 /// Sorts panes in place: urgency tier first, then most recent activity within each tier.

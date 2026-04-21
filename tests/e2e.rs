@@ -30,6 +30,7 @@ fn make_pane(session: &str, pane_id: u32, state: PaneState) -> PaneInfo {
         session_attached: false,
         pane_in_mode: false,
         current_cmd: "bash".to_string(),
+        last_exit_status: 0,
         state,
         last_updated: SystemTime::now(),
         last_focused_at: None,
@@ -93,12 +94,19 @@ fn renders_shell_zsh_awaiting_input() {
 }
 
 #[test]
-fn renders_shell_fish_error() {
+fn renders_shell_fish_just_finished_failed() {
+    use tmux_claude_watcher::tmux::pane::ProcessOutcome;
     let mut app = App::new();
     app.update_panes(Arc::new(vec![make_pane(
         "work",
         1,
-        PaneState::Shell(ShellKind::Fish, ShellStatus::Error),
+        PaneState::Shell(
+            ShellKind::Fish,
+            ShellStatus::JustFinished {
+                cmd: "cargo".into(),
+                outcome: ProcessOutcome::Failed,
+            },
+        ),
     )]));
     let output = render(&app);
     assert!(output.contains("fish"), "Type column should show 'fish'");

@@ -51,4 +51,3 @@ pub const ICON_DONE: (&str, Color) = ("✓", GREEN);
 pub const ICON_AWAITING_PERMISSION: (&str, Color) = ("!", RED);
 pub const ICON_UNKNOWN: (&str, Color) = ("?", DIM);
 pub const ICON_PAUSED: (&str, Color) = ("⏸", YELLOW);
-pub const ICON_STOPPED: (&str, Color) = ("⏹", RED);

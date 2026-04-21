@@ -1,4 +1,4 @@
-//! Shell pane classification — kind (bash/zsh/fish/sh) and status (idle/awaiting/error).
+//! Shell pane classification — kind (bash/zsh/fish/sh) and status (idle/awaiting/just-finished).
 
 use crate::theme;
 use ratatui::style::Color;
@@ -27,36 +27,45 @@ impl ShellKind {
     }
 }
 
+/// Exit outcome of the most recently completed subprocess.
+#[derive(Debug, Clone, PartialEq)]
+pub enum ProcessOutcome {
+    Success,
+    Failed,
+}
+
+impl ProcessOutcome {
+    pub fn from_exit_status(code: i32) -> Self {
+        if code == 0 {
+            Self::Success
+        } else {
+            Self::Failed
+        }
+    }
+}
+
 /// What a shell pane is currently doing.
 #[derive(Debug, Clone, PartialEq)]
 pub enum ShellStatus {
-    /// Shell prompt visible (%, $, #) — user can freely type a command.
+    /// Shell prompt visible — user can freely type a command.
     Idle,
-    /// A running process is requesting input; format varies widely, so this is the fallback.
+    /// Shell is foreground but no prompt visible — e.g. `read`, sudo password, select menu.
     AwaitingInput,
-    /// Error output visible on the last line.
-    Error,
+    /// A subprocess just finished; shown until the user focuses the pane.
+    JustFinished {
+        cmd: String,
+        outcome: ProcessOutcome,
+    },
 }
 
 impl ShellStatus {
-    /// Infers the shell's current status from the pane's visible content.
-    /// Checks are evaluated in priority order.
+    /// Infers idle vs awaiting from the pane's visible content.
     pub fn from_pane_content(content: &str) -> ShellStatus {
-        if Self::has_error(content) {
-            return ShellStatus::Error;
-        }
         if Self::has_prompt(content) {
-            return ShellStatus::Idle;
+            ShellStatus::Idle
+        } else {
+            ShellStatus::AwaitingInput
         }
-        ShellStatus::AwaitingInput
-    }
-
-    fn has_error(content: &str) -> bool {
-        let last = super::last_nonempty_line(content);
-        last.contains("command not found")
-            || last.contains("No such file")
-            || last.starts_with("bash:")
-            || last.starts_with("zsh:")
     }
 
     fn has_prompt(content: &str) -> bool {
@@ -72,7 +81,10 @@ impl ShellStatus {
         match self {
             ShellStatus::Idle => theme::ICON_IDLE,
             ShellStatus::AwaitingInput => theme::ICON_AWAITING_INPUT,
-            ShellStatus::Error => theme::ICON_ERROR,
+            ShellStatus::JustFinished { outcome, .. } => match outcome {
+                ProcessOutcome::Success => theme::ICON_DONE,
+                ProcessOutcome::Failed => theme::ICON_ERROR,
+            },
         }
     }
 }
