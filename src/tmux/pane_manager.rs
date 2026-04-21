@@ -212,11 +212,14 @@ impl PaneManager {
 /// Sets `current_pane.state` for transitions requiring a diff against the previous poll:
 /// marks `JustFinished` when a subprocess exits, and preserves it until the user focuses the pane.
 fn update_pane_state(current: &mut PaneInfo, prev: &PaneInfo) {
-    let just_focused = current.pane_active && !prev.pane_active;
+    // True only when the user is actively looking at this exact pane right now.
+    let focused = current.pane_active && current.window_active && current.session_attached;
+    let just_focused =
+        focused && !(prev.pane_active && prev.window_active && prev.session_attached);
 
     match &prev.state {
         // Other(cmd) → Shell: subprocess exited. Notify unless user is already watching.
-        PaneState::Other(cmd) if !current.pane_active => {
+        PaneState::Other(cmd) if !focused => {
             if let PaneState::Shell(kind, _) = &current.state {
                 current.state = PaneState::Shell(
                     kind.clone(),

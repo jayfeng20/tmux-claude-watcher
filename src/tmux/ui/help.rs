@@ -57,7 +57,12 @@ fn state_icons() -> Vec<Line<'static>> {
         ),
         icon(theme::ICON_DONE, "Done", Some(theme::CLAUDE_LABEL)),
         icon(theme::ICON_IDLE, "Idle", Some(theme::SHELL_LABEL)),
-        icon(theme::ICON_ERROR, "Error", Some(theme::SHELL_LABEL)),
+        icon(theme::ICON_DONE, "Finished (ok)", Some(theme::SHELL_LABEL)),
+        icon(
+            theme::ICON_ERROR,
+            "Finished (err)",
+            Some(theme::SHELL_LABEL),
+        ),
         icon(theme::ICON_IDLE, "Active", Some(theme::TC_WATCHER_LABEL)),
         icon(theme::ICON_PAUSED, "Paused", Some(theme::TC_WATCHER_LABEL)),
         icon(theme::ICON_UNKNOWN, "Unknown", None),
@@ -97,7 +102,7 @@ fn columns() -> Vec<Line<'static>> {
         Line::from(Span::styled("Columns", bold)),
         col("ID", "session:window.pane"),
         col("Type", "process (zsh, claude, …)"),
-        col("State", "activity icon"),
+        col("State", "activity icon (or icon + process for finished)"),
         col("Active", "focused pane in window"),
         col("Last Updated", "time since state changed"),
     ]
